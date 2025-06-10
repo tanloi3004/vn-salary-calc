@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,10 +14,35 @@ interface ResultCardProps {
 }
 
 const formatCurrency = (value: number, currency: string = "VND") => {
-  try {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: currency }).format(value);
-  } catch (e) { // Fallback for unknown currency or other errors
-    return `${value.toLocaleString('vi-VN')} ${currency}`;
+  if (currency === "VND") {
+    // For VND, format as a decimal number with Vietnamese locale-specific thousand separators
+    // and no fractional digits.
+    try {
+      return new Intl.NumberFormat('vi-VN', {
+        style: 'decimal',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(value);
+    } catch (e) {
+      // Fallback for VND number formatting
+      return value.toLocaleString('vi-VN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    }
+  } else {
+    // For other currencies, format with currency symbol and locale-specific separators.
+    try {
+      return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: currency,
+        // Let Intl determine appropriate fraction digits for non-VND currencies
+      }).format(value);
+    } catch (e) {
+      // Fallback: format number with vi-VN locale and append currency code
+      const numericPart = new Intl.NumberFormat('vi-VN', { style: 'decimal' }).format(value);
+      return `${numericPart} ${currency}`;
+    }
   }
 };
 
@@ -39,23 +65,36 @@ export default function ResultCard({ result }: ResultCardProps) {
     const outputType = isGrossMode ? "Net" : "Gross";
     const outputValue = isGrossMode ? net : gross;
 
+    // For clipboard, we might want to be more explicit with currency symbols/codes,
+    // so we'll use a slightly different formatting strategy for the clipboard text.
+    const formatForClipboard = (val: number, curr: string) => {
+      const numStr = new Intl.NumberFormat('vi-VN', { style: 'decimal' }).format(val);
+      if (curr === "VND") return `${numStr} VND`; // Explicitly add VND for clarity in text
+      return `${numStr} ${curr}`; // For USD, JPY just append code for simplicity
+    };
+    
+    const formatCurrencyStyleForClipboard = (val: number, curr: string) => {
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: curr, currencyDisplay: 'code' }).format(val);
+    }
+
+
     const textToCopy = `
 VN Salary Calculation Result:
 ---------------------------------
-Input Salary (${inputType} ${currency}): ${formatCurrency(originalAmount, currency)}
-Calculated ${outputType} (${currency}): ${formatCurrency(outputValue, currency)}
+Input Salary (${inputType} ${currency}): ${formatCurrencyStyleForClipboard(originalAmount, currency)}
+Calculated ${outputType} (${currency}): ${formatCurrencyStyleForClipboard(outputValue, currency)}
 ---------------------------------
-Details (VND):
-Gross Salary: ${formatCurrency(breakdown.grossSalaryVND)}
-Net Salary: ${formatCurrency(breakdown.netSalaryVND)}
-Insurance Base: ${formatCurrency(breakdown.insurance.base)}
-  - BHXH (8%): ${formatCurrency(breakdown.insurance.bhxh)}
-  - BHYT (1.5%): ${formatCurrency(breakdown.insurance.bhyt)}
-  - BHTN (1%): ${formatCurrency(breakdown.insurance.bhtn)}
-  - Total Insurance: ${formatCurrency(breakdown.insurance.total)}
-Taxable Income: ${formatCurrency(breakdown.taxableIncome)}
-Personal Income Tax (PIT): ${formatCurrency(breakdown.personalIncomeTax)}
-Total Deductions (Insurance + PIT): ${formatCurrency(breakdown.totalDeductionsFromGross)}
+Details (all amounts in VND):
+Gross Salary: ${formatForClipboard(breakdown.grossSalaryVND, "VND")}
+Net Salary: ${formatForClipboard(breakdown.netSalaryVND, "VND")}
+Insurance Base: ${formatForClipboard(breakdown.insurance.base, "VND")}
+  - BHXH (8%): ${formatForClipboard(breakdown.insurance.bhxh, "VND")}
+  - BHYT (1.5%): ${formatForClipboard(breakdown.insurance.bhyt, "VND")}
+  - BHTN (1%): ${formatForClipboard(breakdown.insurance.bhtn, "VND")}
+  - Total Insurance: ${formatForClipboard(breakdown.insurance.total, "VND")}
+Taxable Income: ${formatForClipboard(breakdown.taxableIncome, "VND")}
+Personal Income Tax (PIT): ${formatForClipboard(breakdown.personalIncomeTax, "VND")}
+Total Deductions (Insurance + PIT): ${formatForClipboard(breakdown.totalDeductionsFromGross, "VND")}
 ---------------------------------
 Calculation based on provided inputs.
     `;
@@ -107,12 +146,12 @@ Calculation based on provided inputs.
           Kết quả: Lương {displayOutputType} ước tính
         </CardTitle>
         <CardDescription>
-          Từ lương {displayInputType} đầu vào: {formatCurrency(originalAmount, currency)}
+          Từ lương {displayInputType} đầu vào: {formatCurrency(originalAmount, currency)} {currency !== "VND" ? currency : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="text-center py-6 bg-accent/20 rounded-lg">
-          <p className="text-sm font-medium text-muted-foreground">LƯƠNG {displayOutputType.toUpperCase()} NHẬN ĐƯỢC ({currency})</p>
+          <p className="text-sm font-medium text-muted-foreground">LƯƠNG {displayOutputType.toUpperCase()} NHẬN ĐƯỢC {currency !== "VND" ? `(${currency})` : "(VND)"}</p>
           <p className="text-4xl font-bold text-primary mt-1">
             {formatCurrency(displayOutputValue, currency)}
           </p>
@@ -125,11 +164,11 @@ Calculation based on provided inputs.
           <div className="space-y-2 text-sm">
             <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
               <span className="font-medium text-muted-foreground">Lương Gross:</span>
-              <span className="font-semibold text-foreground">{formatCurrency(breakdown.grossSalaryVND)}</span>
+              <span className="font-semibold text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
             </div>
              <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
               <span className="font-medium text-muted-foreground">Lương Net (thực nhận):</span>
-              <span className="font-semibold text-foreground">{formatCurrency(breakdown.netSalaryVND)}</span>
+              <span className="font-semibold text-foreground">{formatCurrency(breakdown.netSalaryVND, "VND")}</span>
             </div>
           </div>
         </div>
@@ -141,23 +180,23 @@ Calculation based on provided inputs.
             <div className="space-y-1 pl-4 text-sm">
               <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
                   <span className="text-muted-foreground">Mức lương đóng BH:</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.base)}</span>
+                  <span className="text-foreground">{formatCurrency(breakdown.insurance.base, "VND")}</span>
               </div>
               <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
                   <span className="text-muted-foreground">BHXH (8%):</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhxh)}</span>
+                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhxh, "VND")}</span>
               </div>
               <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
                   <span className="text-muted-foreground">BHYT (1.5%):</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhyt)}</span>
+                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhyt, "VND")}</span>
               </div>
               <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
                   <span className="text-muted-foreground">BHTN (1%):</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhtn)}</span>
+                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhtn, "VND")}</span>
               </div>
               <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
                   <span className="text-muted-foreground">Tổng bảo hiểm:</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.total)}</span>
+                  <span className="text-foreground">{formatCurrency(breakdown.insurance.total, "VND")}</span>
               </div>
             </div>
         </div>
@@ -169,11 +208,11 @@ Calculation based on provided inputs.
             <div className="space-y-1 pl-4 text-sm">
                  <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
                     <span className="text-muted-foreground">Thu nhập chịu thuế:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.taxableIncome)}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.taxableIncome, "VND")}</span>
                 </div>
                 <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
                     <span className="text-muted-foreground">Tiền thuế TNCN:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.personalIncomeTax)}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.personalIncomeTax, "VND")}</span>
                 </div>
             </div>
         </div>
@@ -182,7 +221,7 @@ Calculation based on provided inputs.
 
         <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
             <span className="text-lg font-bold text-primary">Tổng khấu trừ (BH + Thuế TNCN):</span>
-            <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross)}</span>
+            <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross, "VND")}</span>
         </div>
 
       </CardContent>
@@ -195,3 +234,4 @@ Calculation based on provided inputs.
     </Card>
   );
 }
+
