@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -21,20 +22,16 @@ const nextConfig: NextConfig = {
   experimental: {
     turbo: {
       rules: {
-        '*.md': {
-          loaders: ['raw-loader'],
-          as: '*.js', // Treat the output of raw-loader as a JS module exporting a string
-        },
+        // Removed '*.md' rule
       },
     },
   },
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    config.module.rules.push({
-      test: /\.md$/,
-      use: 'raw-loader',
-    });
+    // Removed rule for '*.md$'
     return config;
   },
 };
 
 export default nextConfig;
+
+    
