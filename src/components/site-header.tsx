@@ -12,7 +12,7 @@ export default function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-2">
           <Button variant="ghost" asChild>
-            <Link href="/calculator" className="flex items-center gap-1">
+            <Link href="/" className="flex items-center gap-1">
               <Settings size={18} />
               Calculator
             </Link>
