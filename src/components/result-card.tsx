@@ -7,11 +7,12 @@ import { Separator } from "@/components/ui/separator";
 import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent, PieChart as PieChartIcon, Briefcase, ListChecks, FileSpreadsheet, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SalaryResult, ProgressiveTaxDetail } from "@/types/salary";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
+
 
 import {
   ChartContainer,
@@ -78,6 +79,7 @@ const formatNumberForExport = (value: number | undefined): number => {
 export default function ResultCard({ result }: ResultCardProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const printableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (copied) {
@@ -220,8 +222,7 @@ Calculation based on provided inputs.
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Salary Calculation");
     
-    // Formatting (optional, basic example for column widths)
-    const colWidths = [{ wch: 40 }, { wch: 20 }]; // Adjust as needed
+    const colWidths = [{ wch: 40 }, { wch: 20 }]; 
     worksheet['!cols'] = colWidths;
 
     try {
@@ -241,134 +242,101 @@ Calculation based on provided inputs.
     }
   };
 
-  const handleExportToPDF = () => {
-    if (!result) return;
-    const { gross, net, breakdown, isGrossMode, originalAmount, currency } = result;
-    
-    const doc = new jsPDF();
-    const pageHeight = doc.internal.pageSize.height;
-    let yPos = 20; // Initial Y position
-
-    doc.setFontSize(18);
-    doc.text("VN SALARY CALCULATION RESULT", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-    yPos += 10;
-
-    doc.setFontSize(12);
-    doc.text(`Calculation Mode: ${isGrossMode ? "Gross to Net" : "Net to Gross"}`, 14, yPos);
-    yPos += 7;
-    doc.text(`Input Salary (${currency}): ${formatCurrency(originalAmount, currency)}`, 14, yPos);
-    yPos += 7;
-    doc.text(`Calculated ${isGrossMode ? "Net" : "Gross"} (${currency}): ${formatCurrency(isGrossMode ? net : gross, currency)}`, 14, yPos);
-    yPos += 10;
-
-    doc.text("DETAILS (VND)", 14, yPos);
-    yPos += 7;
-    doc.text(`Gross Salary (VND): ${formatCurrency(breakdown.grossSalaryVND, "VND")}`, 14, yPos);
-    yPos += 7;
-    doc.text(`Net Salary (VND): ${formatCurrency(breakdown.netSalaryVND, "VND")}`, 14, yPos);
-    yPos += 10;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [['EMPLOYEE\'S INSURANCE CONTRIBUTIONS (VND)', 'Amount (VND)']],
-      body: [
-        ['Base for BHXH, BHYT', formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND")],
-        ['Base for BHTN', formatCurrency(breakdown.insurance.baseBHTN, "VND")],
-        ['BHXH (8%)', formatCurrency(breakdown.insurance.bhxh, "VND")],
-        ['BHYT (1.5%)', formatCurrency(breakdown.insurance.bhyt, "VND")],
-        ['BHTN', formatCurrency(breakdown.insurance.bhtn, "VND")],
-        ['Total Employee Insurance', formatCurrency(breakdown.insurance.total, "VND")],
-      ],
-      theme: 'striped',
-      headStyles: { fillColor: [75, 85, 99] }, // gray-600
-      didDrawPage: (data) => { yPos = data.cursor?.y ?? yPos; }
-    });
-    yPos += 10;
-     if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
-
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [['PERSONAL INCOME TAX (PIT) (VND)', 'Amount (VND)']],
-      body: [
-        ['Taxable Income', formatCurrency(breakdown.taxableIncome, "VND")],
-        ['PIT Amount', formatCurrency(breakdown.personalIncomeTax, "VND")],
-      ],
-      theme: 'striped',
-      headStyles: { fillColor: [75, 85, 99] },
-      didDrawPage: (data) => { yPos = data.cursor?.y ?? yPos; }
-    });
-     yPos += 7; // Adjust space after table
-     if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
-
-
-    if (breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.length > 0 && breakdown.personalIncomeTax > 0) {
-      yPos +=3;
-      doc.text("PIT Breakdown by Brackets (VND):", 14, yPos);
-      yPos += 2;
-       if (yPos > pageHeight - 50) { doc.addPage(); yPos = 20; }
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Bracket', 'Taxable Income', 'Rate', 'Tax Amount']],
-        body: breakdown.progressiveTaxDetails
-          .filter(detail => detail.incomeInBracket > 0 || (breakdown.personalIncomeTax === 0 && breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.indexOf(detail) === 0))
-          .map(d => [
-            d.bracketLabel,
-            formatCurrency(d.incomeInBracket, "VND"),
-            `${(d.rate * 100).toFixed(0)}%`,
-            formatCurrency(d.taxAmountInBracket, "VND"),
-          ]),
-        theme: 'grid',
-        headStyles: { fillColor: [220, 220, 220], textColor: [0,0,0] }, // light gray
-        didDrawPage: (data) => { yPos = data.cursor?.y ?? yPos; }
+  const handleExportToPDF = async () => {
+    if (!result || !printableRef.current) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi xuất PDF",
+        description: "Không có dữ liệu để xuất hoặc không tìm thấy vùng nội dung.",
+        action: <AlertTriangle className="text-red-500" />,
       });
-      yPos += 7;
-       if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+      return;
     }
+
+    const { isGrossMode } = result;
     
-    doc.text(`Total Deductions from Gross (Insurance + PIT): ${formatCurrency(breakdown.totalDeductionsFromGross, "VND")}`, 14, yPos);
-    yPos += 10;
-    if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
-
-    autoTable(doc, {
-        startY: yPos,
-        head: [['EMPLOYER\'S CONTRIBUTIONS (VND)', 'Amount (VND)']],
-        body: [
-            ['BHXH (17.5%)', formatCurrency(breakdown.employerContributions.bhxh, "VND")],
-            ['BHYT (3%)', formatCurrency(breakdown.employerContributions.bhyt, "VND")],
-            ['BHTN', formatCurrency(breakdown.employerContributions.bhtn, "VND")],
-            ...(breakdown.employerContributions.tradeUnionFee > 0 ? [['Trade Union Fee (2%)', formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND")]] : []),
-            ['Total Employer Contributions', formatCurrency(breakdown.employerContributions.total, "VND")],
-        ],
-        theme: 'striped',
-        headStyles: { fillColor: [75, 85, 99] },
-        didDrawPage: (data) => { yPos = data.cursor?.y ?? yPos; }
-    });
-    yPos += 7;
-    if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
-
-    doc.text(`Total Employer Cost: ${formatCurrency(breakdown.totalEmployerCost, "VND")}`, 14, yPos);
-    yPos += 10;
-    if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
-
-    doc.setFontSize(10);
-    doc.text("Note: This PDF is a summary. For full details, refer to the web application.", 14, yPos);
-    yPos +=5;
-    doc.text("Vietnamese characters may not render correctly in this PDF without appropriate font embedding.", 14, yPos);
-
-
     try {
-      doc.save(`VN_Salary_Calc_${isGrossMode ? 'GtoN' : 'NtoG'}.pdf`);
+      // Temporarily make scrollbars invisible if they affect the canvas capture
+      const originalOverflow = printableRef.current.style.overflow;
+      printableRef.current.style.overflow = 'visible';
+
+      const canvas = await html2canvas(printableRef.current, {
+        scale: 2, // Increase scale for better resolution
+        useCORS: true, // If you have external images/fonts
+        logging: false, // Disable html2canvas logging for cleaner console
+        onclone: (documentClone) => {
+          // You can modify the cloned document here before rendering if needed
+          // For example, hide elements not meant for PDF
+        }
+      });
+
+      printableRef.current.style.overflow = originalOverflow; // Restore original overflow
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt', // points
+        format: 'a4' 
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      // Calculate scaling to fit image on PDF page (maintaining aspect ratio)
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const scaledWidth = imgWidth * ratio;
+      const scaledHeight = imgHeight * ratio;
+
+      // Center the image on the page (optional)
+      const x = (pdfWidth - scaledWidth) / 2;
+      const y = (pdfHeight - scaledHeight) / 2;
+      
+      // If image is taller than page, it will be split by jsPDF
+      // For very long content, you might need manual splitting logic.
+      // This basic implementation adds the image as is.
+      if (scaledHeight > pdfHeight) { // Basic multi-page handling
+        let position = 0;
+        const pageImgHeight = pdfHeight; // Use full page height for each slice
+
+        while(position < imgHeight) {
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width = imgWidth;
+            sliceCanvas.height = Math.min(imgHeight - position, pageImgHeight / ratio); // height of slice in original image pixels
+            const sliceCtx = sliceCanvas.getContext('2d');
+            sliceCtx?.drawImage(canvas, 0, position, imgWidth, sliceCanvas.height, 0, 0, imgWidth, sliceCanvas.height);
+            
+            const sliceImgData = sliceCanvas.toDataURL('image/png');
+            const sliceScaledHeight = sliceCanvas.height * ratio;
+            const sliceScaledWidth = sliceCanvas.width * ratio;
+            const sliceX = (pdfWidth - sliceScaledWidth) / 2;
+
+
+            if (position > 0) {
+                pdf.addPage();
+            }
+            pdf.addImage(sliceImgData, 'PNG', sliceX, 0, sliceScaledWidth, sliceScaledHeight);
+            position += sliceCanvas.height;
+        }
+      } else {
+         pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+      }
+
+
+      pdf.save(`VN_Salary_Calc_${isGrossMode ? 'GtoN' : 'NtoG'}.pdf`);
+
       toast({
         title: "Đã xuất PDF!",
         description: "Kết quả đã được lưu vào file PDF.",
         action: <CheckCircle className="text-green-500" />,
       });
     } catch (err) {
-       toast({
+      console.error("PDF Export Error:", err);
+      toast({
         variant: "destructive",
         title: "Lỗi xuất PDF",
-        description: "Không thể tạo file PDF.",
+        description: `Không thể tạo file PDF. Lỗi: ${err instanceof Error ? err.message : String(err)}`,
         action: <AlertTriangle className="text-red-500" />,
       });
     }
@@ -424,217 +392,218 @@ Calculation based on provided inputs.
           Từ lương {displayInputType} đầu vào: {formatCurrency(originalAmount, currency)} {currency !== "VND" ? "" : currency}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="text-center py-6 bg-accent/20 rounded-lg">
-          <p className="text-sm font-medium text-muted-foreground">LƯƠNG {displayOutputType.toUpperCase()} NHẬN ĐƯỢC {currency !== "VND" ? `(${currency})` : "(VND)"}</p>
-          <p className="text-4xl font-bold text-primary mt-1">
-            {formatCurrency(displayOutputValue, currency)}
-          </p>
-           {currency !== "VND" && (
-            <p className="text-xs text-muted-foreground mt-1">
-              (Tương đương {formatCurrency(isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND, "VND")} VND)
+      <div ref={printableRef}> {/* This div will be captured by html2canvas */}
+        <CardContent className="space-y-6">
+          <div className="text-center py-6 bg-accent/20 rounded-lg">
+            <p className="text-sm font-medium text-muted-foreground">LƯƠNG {displayOutputType.toUpperCase()} NHẬN ĐƯỢC {currency !== "VND" ? `(${currency})` : "(VND)"}</p>
+            <p className="text-4xl font-bold text-primary mt-1">
+              {formatCurrency(displayOutputValue, currency)}
             </p>
-          )}
-        </div>
-        
-        <Separator />
-        
-        <div>
-          <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><CircleDollarSign size={20} className="mr-2 text-primary" />Chi tiết (VND)</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
-              <span className="font-medium text-muted-foreground">Lương Gross:</span>
-              <span className="font-semibold text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
-            </div>
-             <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
-              <span className="font-medium text-muted-foreground">Lương Net (thực nhận):</span>
-              <span className="font-semibold text-foreground">{formatCurrency(breakdown.netSalaryVND, "VND")}</span>
+            {currency !== "VND" && (
+              <p className="text-xs text-muted-foreground mt-1">
+                (Tương đương {formatCurrency(isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND, "VND")} VND)
+              </p>
+            )}
+          </div>
+          
+          <Separator />
+          
+          <div>
+            <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><CircleDollarSign size={20} className="mr-2 text-primary" />Chi tiết (VND)</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
+                <span className="font-medium text-muted-foreground">Lương Gross:</span>
+                <span className="font-semibold text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
+              </div>
+              <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
+                <span className="font-medium text-muted-foreground">Lương Net (thực nhận):</span>
+                <span className="font-semibold text-foreground">{formatCurrency(breakdown.netSalaryVND, "VND")}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <Separator />
+          <Separator />
 
-        <div>
-            <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Shield size={18} className="mr-2 text-primary" />Các khoản bảo hiểm người lao động đóng:</h4>
-            <div className="space-y-1 pl-4 text-sm">
-              <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                  <span className="text-muted-foreground">Mức lương đóng BHXH, BHYT:</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND")}</span>
-              </div>
-              <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                  <span className="text-muted-foreground">Mức lương đóng BHTN:</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHTN, "VND")}</span>
-              </div>
-              <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                  <span className="text-muted-foreground">BHXH (8%):</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhxh, "VND")}</span>
-              </div>
-              <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                  <span className="text-muted-foreground">BHYT (1.5%):</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhyt, "VND")}</span>
-              </div>
-              <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                  <span className="text-muted-foreground">BHTN:</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.bhtn, "VND")}</span>
-              </div>
-              <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                  <span className="text-muted-foreground">Tổng bảo hiểm NLĐ đóng:</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.total, "VND")}</span>
-              </div>
-            </div>
-        </div>
-
-        <Separator />
-        
-        <div>
-            <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Percent size={18} className="mr-2 text-primary" />Thuế thu nhập cá nhân (TNCN):</h4>
-            <div className="space-y-1 pl-4 text-sm">
-                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">Thu nhập chịu thuế:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.taxableIncome, "VND")}</span>
+          <div>
+              <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Shield size={18} className="mr-2 text-primary" />Các khoản bảo hiểm người lao động đóng:</h4>
+              <div className="space-y-1 pl-4 text-sm">
+                <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">Mức lương đóng BHXH, BHYT:</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND")}</span>
+                </div>
+                <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">Mức lương đóng BHTN:</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHTN, "VND")}</span>
+                </div>
+                <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">BHXH (8%):</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhxh, "VND")}</span>
+                </div>
+                <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">BHYT (1.5%):</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhyt, "VND")}</span>
+                </div>
+                <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">BHTN:</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhtn, "VND")}</span>
                 </div>
                 <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                    <span className="text-muted-foreground">Tiền thuế TNCN:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.personalIncomeTax, "VND")}</span>
-                </div>
-            </div>
-        </div>
-         {breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.length > 0 && breakdown.personalIncomeTax > 0 && (
-          <>
-            <Separator className="my-3" />
-             <div>
-                <h5 className="text-md font-semibold mb-2 text-foreground flex items-center"><ListChecks size={16} className="mr-2 text-primary" /> Chi tiết các bậc thuế TNCN:</h5>
-                <div className="overflow-x-auto text-xs pl-4">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-1 px-1 font-medium text-muted-foreground">Mức chịu thuế</th>
-                        <th className="text-right py-1 px-1 font-medium text-muted-foreground">TN tính thuế</th>
-                        <th className="text-center py-1 px-1 font-medium text-muted-foreground">Thuế suất</th>
-                        <th className="text-right py-1 px-1 font-medium text-muted-foreground">Tiền thuế</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {breakdown.progressiveTaxDetails.map((detail, index) => (
-                        (detail.incomeInBracket > 0 || breakdown.personalIncomeTax === 0 || index === 0 ) && <tr key={index} className="border-b hover:bg-secondary/20 last:border-b-0">
-                          <td className="py-1 px-1 text-muted-foreground">{detail.bracketLabel}</td>
-                          <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.incomeInBracket, "VND")}</td>
-                          <td className="py-1 px-1 text-center text-foreground">{(detail.rate * 100).toFixed(0)}%</td>
-                          <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.taxAmountInBracket, "VND")}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    <span className="text-muted-foreground">Tổng bảo hiểm NLĐ đóng:</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.total, "VND")}</span>
                 </div>
               </div>
-          </>
-        )}
-        
-        <Separator />
+          </div>
 
-        <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
-            <span className="text-lg font-bold text-primary">Tổng khấu trừ NLĐ (BH + Thuế TNCN):</span>
-            <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross, "VND")}</span>
-        </div>
-
-        <Separator className="my-6" />
-
-        <div>
-            <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><Briefcase size={20} className="mr-2 text-primary" />Chi phí người sử dụng lao động (VND)</h3>
-            <div className="space-y-1 pl-4 text-sm">
-                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">Lương Gross:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
-                </div>
-                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">BHXH (17.5%):</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhxh, "VND")}</span>
-                </div>
-                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">BHYT (3%):</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhyt, "VND")}</span>
-                </div>
-                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">BHTN (NSDLĐ đóng):</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhtn, "VND")}</span>
-                </div>
-                {breakdown.employerContributions.tradeUnionFee > 0 && (
+          <Separator />
+          
+          <div>
+              <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Percent size={18} className="mr-2 text-primary" />Thuế thu nhập cá nhân (TNCN):</h4>
+              <div className="space-y-1 pl-4 text-sm">
                   <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                      <span className="text-muted-foreground">Kinh phí Công đoàn (2%):</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND")}</span>
+                      <span className="text-muted-foreground">Thu nhập chịu thuế:</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.taxableIncome, "VND")}</span>
                   </div>
-                )}
-                 <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                    <span className="text-muted-foreground">Tổng các khoản NSDLĐ đóng:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.total, "VND")}</span>
+                  <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
+                      <span className="text-muted-foreground">Tiền thuế TNCN:</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.personalIncomeTax, "VND")}</span>
+                  </div>
+              </div>
+          </div>
+          {breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.length > 0 && breakdown.personalIncomeTax > 0 && (
+            <>
+              <Separator className="my-3" />
+              <div>
+                  <h5 className="text-md font-semibold mb-2 text-foreground flex items-center"><ListChecks size={16} className="mr-2 text-primary" /> Chi tiết các bậc thuế TNCN:</h5>
+                  <div className="overflow-x-auto text-xs pl-4">
+                    <table className="min-w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-1 px-1 font-medium text-muted-foreground">Mức chịu thuế</th>
+                          <th className="text-right py-1 px-1 font-medium text-muted-foreground">TN tính thuế</th>
+                          <th className="text-center py-1 px-1 font-medium text-muted-foreground">Thuế suất</th>
+                          <th className="text-right py-1 px-1 font-medium text-muted-foreground">Tiền thuế</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {breakdown.progressiveTaxDetails.map((detail, index) => (
+                          (detail.incomeInBracket > 0 || breakdown.personalIncomeTax === 0 || index === 0 ) && <tr key={index} className="border-b hover:bg-secondary/20 last:border-b-0">
+                            <td className="py-1 px-1 text-muted-foreground">{detail.bracketLabel}</td>
+                            <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.incomeInBracket, "VND")}</td>
+                            <td className="py-1 px-1 text-center text-foreground">{(detail.rate * 100).toFixed(0)}%</td>
+                            <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.taxAmountInBracket, "VND")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-            </div>
-            <div className="flex justify-between items-center p-3 mt-4 bg-primary/10 rounded-lg">
-                <span className="text-lg font-bold text-primary">Tổng chi phí NSDLĐ:</span>
-                <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalEmployerCost, "VND")}</span>
-            </div>
-        </div>
-
-
-        <Separator className="my-6" />
-        
-        <div>
-          <h3 className="text-xl font-semibold mb-1 text-foreground flex items-center">
-            <PieChartIcon size={20} className="mr-2 text-primary" />
-            Biểu đồ phân bổ lương Gross
-          </h3>
-          {breakdown.grossSalaryVND > 0 && chartData.length > 0 ? (
-            <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[350px] min-h-[250px]">
-              <RechartsPieChart accessibilityLayer>
-                <RechartsTooltip
-                  cursor={true}
-                  content={<ChartTooltipContent 
-                              nameKey="name" 
-                              hideLabel 
-                              formatter={(value, name, item) => (
-                                  <div className="flex flex-col">
-                                      <span>{item.payload.name}</span>
-                                      <span className="font-bold">{formatCurrency(value, "VND")} ({((value / breakdown.grossSalaryVND) * 100).toFixed(1)}%)</span>
-                                  </div>
-                              )}
-                          />}
-                />
-                <RechartsPie
-                  data={chartData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  innerRadius={50}
-                  labelLine={false}
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
-                    if (percent * 100 < 3) return null; 
-                    const RADIAN = Math.PI / 180;
-                    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                    return (
-                      <text x={x} y={y} fill="hsl(var(--primary-foreground))" textAnchor="middle" dominantBaseline="central" fontSize="10px" fontWeight="bold">
-                        {`${(percent * 100).toFixed(0)}%`}
-                      </text>
-                    );
-                  }}
-                >
-                  {chartData.map((entry) => (
-                    <Cell key={`cell-${entry.name}`} fill={entry.fill} stroke={"hsl(var(--background))"} strokeWidth={2} />
-                  ))}
-                </RechartsPie>
-                <ChartLegend content={<ChartLegendContent nameKey="name" className="text-xs [&_div]:inline-block [&_div]:truncate [&_div]:max-w-[100px] sm:[&_div]:max-w-[180px]" />} />
-              </RechartsPieChart>
-            </ChartContainer>
-          ) : (
-            <p className="text-muted-foreground text-center py-4">Không đủ dữ liệu để vẽ biểu đồ (Lương Gross cần lớn hơn 0).</p>
+            </>
           )}
-        </div>
+          
+          <Separator />
 
-      </CardContent>
+          <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
+              <span className="text-lg font-bold text-primary">Tổng khấu trừ NLĐ (BH + Thuế TNCN):</span>
+              <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross, "VND")}</span>
+          </div>
+
+          <Separator className="my-6" />
+
+          <div>
+              <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><Briefcase size={20} className="mr-2 text-primary" />Chi phí người sử dụng lao động (VND)</h3>
+              <div className="space-y-1 pl-4 text-sm">
+                  <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                      <span className="text-muted-foreground">Lương Gross:</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                      <span className="text-muted-foreground">BHXH (17.5%):</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhxh, "VND")}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                      <span className="text-muted-foreground">BHYT (3%):</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhyt, "VND")}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                      <span className="text-muted-foreground">BHTN (NSDLĐ đóng):</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhtn, "VND")}</span>
+                  </div>
+                  {breakdown.employerContributions.tradeUnionFee > 0 && (
+                    <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                        <span className="text-muted-foreground">Kinh phí Công đoàn (2%):</span>
+                        <span className="text-foreground">{formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND")}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
+                      <span className="text-muted-foreground">Tổng các khoản NSDLĐ đóng:</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.total, "VND")}</span>
+                  </div>
+              </div>
+              <div className="flex justify-between items-center p-3 mt-4 bg-primary/10 rounded-lg">
+                  <span className="text-lg font-bold text-primary">Tổng chi phí NSDLĐ:</span>
+                  <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalEmployerCost, "VND")}</span>
+              </div>
+          </div>
+
+
+          <Separator className="my-6" />
+          
+          <div>
+            <h3 className="text-xl font-semibold mb-1 text-foreground flex items-center">
+              <PieChartIcon size={20} className="mr-2 text-primary" />
+              Biểu đồ phân bổ lương Gross
+            </h3>
+            {breakdown.grossSalaryVND > 0 && chartData.length > 0 ? (
+              <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[350px] min-h-[250px]">
+                <RechartsPieChart accessibilityLayer>
+                  <RechartsTooltip
+                    cursor={true}
+                    content={<ChartTooltipContent 
+                                nameKey="name" 
+                                hideLabel 
+                                formatter={(value, name, item) => (
+                                    <div className="flex flex-col">
+                                        <span>{item.payload.name}</span>
+                                        <span className="font-bold">{formatCurrency(value, "VND")} ({((value / breakdown.grossSalaryVND) * 100).toFixed(1)}%)</span>
+                                    </div>
+                                )}
+                            />}
+                  />
+                  <RechartsPie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    innerRadius={50}
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                      if (percent * 100 < 3) return null; 
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text x={x} y={y} fill="hsl(var(--primary-foreground))" textAnchor="middle" dominantBaseline="central" fontSize="10px" fontWeight="bold">
+                          {`${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      );
+                    }}
+                  >
+                    {chartData.map((entry) => (
+                      <Cell key={`cell-${entry.name}`} fill={entry.fill} stroke={"hsl(var(--background))"} strokeWidth={2} />
+                    ))}
+                  </RechartsPie>
+                  <ChartLegend content={<ChartLegendContent nameKey="name" className="text-xs [&_div]:inline-block [&_div]:truncate [&_div]:max-w-[100px] sm:[&_div]:max-w-[180px]" />} />
+                </RechartsPieChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">Không đủ dữ liệu để vẽ biểu đồ (Lương Gross cần lớn hơn 0).</p>
+            )}
+          </div>
+        </CardContent>
+      </div> {/* End of printableRef div */}
       <CardFooter className="flex-col sm:flex-row gap-2">
         <Button onClick={handleCopyToClipboard} variant="outline" className="w-full sm:w-auto flex-1">
           {copied ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
