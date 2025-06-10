@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,7 @@ import {
   Users,
   Globe2,
   Info,
+  Briefcase, // Using Briefcase for trade union
 } from "lucide-react";
 
 import type { SalaryInput, Currency, InsuranceBasis, TaxCalculationMethod, Region, Nationality } from "@/types/salary";
@@ -59,6 +61,7 @@ const formSchema = z.object({
   region: z.coerce.number().min(1).max(4).transform(val => val as Region),
   dependents: z.coerce.number().min(0, "Số người phụ thuộc không thể âm").int("Số người phụ thuộc phải là số nguyên"),
   nationality: z.enum(["VN", "Foreign"]),
+  hasTradeUnionFee: z.boolean().optional().default(false),
 }).superRefine((data, ctx) => {
   if (data.currency !== "VND" && (data.exchangeRate === undefined || data.exchangeRate <= 0)) {
     ctx.addIssue({
@@ -94,6 +97,7 @@ const defaultValues: Partial<SalaryFormValues> = {
   region: 1,
   dependents: 0,
   nationality: "VN",
+  hasTradeUnionFee: false,
 };
 
 const formatVNNumberForInput = (value: string | number | undefined): string => {
@@ -134,7 +138,6 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
         const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1);
         setSalaryInWords(capitalizedWords + " đồng");
       } catch (e) {
-        console.error("Error converting number to words:", e);
         setSalaryInWords('');
       }
     } else {
@@ -151,6 +154,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
       insuranceCustom: values.insuranceBasis === 'custom' ? values.insuranceCustom : undefined,
       region: values.region as Region,
       nationality: values.nationality as Nationality,
+      hasTradeUnionFee: values.hasTradeUnionFee,
     };
     onSubmit(salaryData);
     toast({
@@ -254,7 +258,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          field.onChange(numericString === '' ? undefined : Number(numericString));
+                           field.onChange(numericString === '' ? undefined : Number(numericString));
                         }}
                       />
                     </FormControl>
@@ -316,7 +320,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          field.onChange(numericString === '' ? undefined : Number(numericString));
+                           field.onChange(numericString === '' ? undefined : Number(numericString));
                         }}
                       />
                     </FormControl>
@@ -326,8 +330,36 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 )}
               />
             )}
+            
+            <Separator />
+
+            <FormField
+              control={form.control}
+              name="hasTradeUnionFee"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="flex items-center cursor-pointer">
+                      <Briefcase size={16} className="mr-2 text-primary" />
+                      Có đóng kinh phí Công đoàn (2% do NSDLĐ đóng)
+                    </FormLabel>
+                    <FormDescription>
+                      Kinh phí công đoàn là khoản đóng góp của doanh nghiệp, không trừ vào lương người lao động.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+
 
             <Separator />
+
 
             <FormField
               control={form.control}
@@ -440,7 +472,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>Ảnh hưởng cách tính thuế TNCN.</FormDescription>
+                    <FormDescription>Ảnh hưởng cách tính thuế TNCN và BHTN.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

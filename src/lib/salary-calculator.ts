@@ -13,6 +13,7 @@ import {
   BHYT_RATE_EMPLOYER,
   BHTN_RATE_EMPLOYER_VN,
   BHTN_RATE_EMPLOYER_FOREIGN,
+  TRADE_UNION_FEE_RATE_EMPLOYER,
   PROGRESSIVE_TAX_BRACKETS_VND,
   PERSONAL_DEDUCTION_VND,
   DEPENDENT_DEDUCTION_VND
@@ -119,7 +120,6 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
   if (input.taxCalculationMethod === 'flat10') {
     personalIncomeTax = Math.max(0, incomeBeforeTax * 0.10);
   } else { // progressive
-    // For foreigners, law might differ (resident vs non-resident), this assumes resident-like progressive for simplicity
     const taxableIncomeForPIT = Math.max(0, incomeBeforeTax - totalPersonalDeductions);
     const taxCalcResult = calculateProgressiveTax(taxableIncomeForPIT);
     personalIncomeTax = taxCalcResult.totalTax;
@@ -135,9 +135,16 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
   const bhytEmployer = insuranceBaseBHXHBHYT * BHYT_RATE_EMPLOYER;
   const bhtnRateEmployer = input.nationality === 'VN' ? BHTN_RATE_EMPLOYER_VN : BHTN_RATE_EMPLOYER_FOREIGN;
   const bhtnEmployer = insuranceBaseBHTN * bhtnRateEmployer;
-  const totalEmployerInsurance = bhxhEmployer + bhytEmployer + bhtnEmployer;
+  
+  // Trade Union Fee (Employer)
+  let tradeUnionFeeAmount = 0;
+  if (input.hasTradeUnionFee) {
+    const tradeUnionFeeBase = Math.min(grossSalaryVND, maxCapBHXHBHYT); // Cap is 20 * base salary
+    tradeUnionFeeAmount = tradeUnionFeeBase * TRADE_UNION_FEE_RATE_EMPLOYER;
+  }
 
-  const totalEmployerCost = grossSalaryVND + totalEmployerInsurance;
+  const totalEmployerInsuranceAndFees = bhxhEmployer + bhytEmployer + bhtnEmployer + tradeUnionFeeAmount;
+  const totalEmployerCost = grossSalaryVND + totalEmployerInsuranceAndFees;
   
   let grossForOutput = grossSalaryVND;
   let netForOutput = netSalaryVND;
@@ -170,7 +177,8 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
         bhxh: bhxhEmployer,
         bhyt: bhytEmployer,
         bhtn: bhtnEmployer,
-        total: totalEmployerInsurance
+        tradeUnionFee: tradeUnionFeeAmount,
+        total: totalEmployerInsuranceAndFees,
       },
       totalEmployerCost,
     },
@@ -180,43 +188,39 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
 
 export function computeSalary(input: SalaryInput): SalaryResult {
   let salaryInVND = input.salaryInput;
-  let originalGrossSalaryVND = salaryInVND; // for Net to Gross, this will be an estimate
 
   if (input.currency !== 'VND' && input.exchangeRate && input.exchangeRate > 0) {
     salaryInVND = input.salaryInput * input.exchangeRate;
-    originalGrossSalaryVND = salaryInVND;
   }
 
 
   if (input.isGrossMode) {
-    // Gross to Net calculation
     const result = calculateNetFromGross(salaryInVND, input);
      return {
-      ...result, // gross and net are already in target currency or VND
+      ...result, 
       gross: (input.currency !== 'VND' && input.exchangeRate) ? input.salaryInput : result.breakdown.grossSalaryVND,
       net: (input.currency !== 'VND' && input.exchangeRate && result.breakdown.netSalaryVND > 0) ? result.breakdown.netSalaryVND / input.exchangeRate : result.breakdown.netSalaryVND,
       currency: input.currency,
       originalAmount: input.salaryInput,
       isGrossMode: true,
     };
-  } else { // Calculate Gross from Net
+  } else { 
     const targetNetVND = salaryInVND;
     
-    // Initial estimation for Gross
     let estimatedGrossVND = targetNetVND;
     const totalBasicInsuranceRate = BHXH_RATE_EMPLOYEE + BHYT_RATE_EMPLOYEE + (input.nationality === 'VN' ? BHTN_RATE_EMPLOYEE_VN : BHTN_RATE_EMPLOYEE_FOREIGN);
     
-    if (targetNetVND > PERSONAL_DEDUCTION_VND) { // crude estimation including some tax
-        estimatedGrossVND = targetNetVND / (1 - totalBasicInsuranceRate - 0.15); // Assume avg 15% tax
+    if (targetNetVND > PERSONAL_DEDUCTION_VND) { 
+        estimatedGrossVND = targetNetVND / (1 - totalBasicInsuranceRate - 0.15); 
     } else {
         estimatedGrossVND = targetNetVND / (1 - totalBasicInsuranceRate);
     }
-    estimatedGrossVND = Math.max(targetNetVND, estimatedGrossVND); // Gross must be >= Net
+    estimatedGrossVND = Math.max(targetNetVND, estimatedGrossVND); 
 
 
     let iteration = 0;
-    const MAX_ITERATIONS = 100; // Increased iterations for potentially complex non-linear system
-    const TOLERANCE_VND = 1; // Tighter tolerance for VND
+    const MAX_ITERATIONS = 100; 
+    const TOLERANCE_VND = 1; 
 
     let lastResultBreakdown: SalaryResult['breakdown'] | null = null;
 
@@ -229,18 +233,17 @@ export function computeSalary(input: SalaryInput): SalaryResult {
         break;
       }
       
-      // Adjust gross; if calculatedNet is 0, it's problematic, needs a robust boost
       if (calculatedNetVND <= 0 && targetNetVND > 0) {
-          estimatedGrossVND = estimatedGrossVND * 1.5 + targetNetVND; // more aggressive boost
+          estimatedGrossVND = estimatedGrossVND * 1.5 + targetNetVND; 
       } else if (calculatedNetVND > 0) {
           estimatedGrossVND = estimatedGrossVND * (targetNetVND / calculatedNetVND);
-      } else { // both are zero or negative, maintain current estimate or slightly increase
+      } else { 
           estimatedGrossVND += TOLERANCE_VND; 
       }
-      estimatedGrossVND = Math.max(targetNetVND, estimatedGrossVND); // Ensure gross is at least targetNet
+      estimatedGrossVND = Math.max(targetNetVND, estimatedGrossVND); 
     }
 
-    if (!lastResultBreakdown) { // Should always have a lastResultBreakdown from loop
+    if (!lastResultBreakdown) { 
         lastResultBreakdown = calculateNetFromGross(estimatedGrossVND, input).breakdown;
     }
     
@@ -249,8 +252,7 @@ export function computeSalary(input: SalaryInput): SalaryResult {
 
     if (input.currency !== 'VND' && input.exchangeRate && input.exchangeRate > 0) {
         finalGrossForOutput = lastResultBreakdown.grossSalaryVND / input.exchangeRate;
-        // finalNetForOutput should be close to input.salaryInput if converted back
-        finalNetForOutput = input.salaryInput; // The original Net input is the target
+        finalNetForOutput = input.salaryInput; 
     }
 
 

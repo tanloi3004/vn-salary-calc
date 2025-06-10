@@ -16,6 +16,7 @@ export interface SalaryInput {
   region: Region;
   dependents: number;
   nationality: Nationality;
+  hasTradeUnionFee?: boolean;
 }
 
 export interface ProgressiveTaxDetail {
@@ -47,9 +48,10 @@ export interface SalaryResult {
       bhxh: number;
       bhyt: number;
       bhtn: number;
+      tradeUnionFee: number;
       total: number;
     };
-    totalEmployerCost: number; // Gross Salary (VND) + Total Employer Insurance
+    totalEmployerCost: number; // Gross Salary (VND) + Total Employer Insurance + Trade Union Fee
   };
   currency: Currency;
   originalAmount: number;
@@ -85,7 +87,7 @@ export const REGION_MINIMUM_WAGE_VND_LEGAL: Record<Region, number> = {
 // Nghị định 73/2023/NĐ-CP (áp dụng từ 1/7/2023)
 export const BASE_SALARY_VND_LEGAL = 2340000;
 
-export const MAX_INSURANCE_CAP_BASE_SALARY_MULTIPLIER = 20; // For BHXH, BHYT based on Base Salary
+export const MAX_INSURANCE_CAP_BASE_SALARY_MULTIPLIER = 20; // For BHXH, BHYT, Trade Union Fee based on Base Salary
 export const MAX_INSURANCE_CAP_REGIONAL_WAGE_MULTIPLIER = 20; // For BHTN based on Regional Minimum Wage
 
 export const BHXH_RATE_EMPLOYEE = 0.08;
@@ -97,6 +99,8 @@ export const BHXH_RATE_EMPLOYER = 0.175;
 export const BHYT_RATE_EMPLOYER = 0.03;
 export const BHTN_RATE_EMPLOYER_VN = 0.01; // For Vietnamese nationals
 export const BHTN_RATE_EMPLOYER_FOREIGN = 0; // For Foreign nationals
+export const TRADE_UNION_FEE_RATE_EMPLOYER = 0.02;
+
 
 export const PROGRESSIVE_TAX_BRACKETS_VND = [
   { from: 0, to: 5000000, rate: 0.05, label: "Đến 5 triệu" },

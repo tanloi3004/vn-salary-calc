@@ -119,10 +119,15 @@ Total Deductions from Gross (Insurance + PIT): ${formatCurrency(breakdown.totalD
 Employer's Contributions (VND):
   - BHXH (17.5%): ${formatCurrency(breakdown.employerContributions.bhxh, "VND")}
   - BHYT (3%): ${formatCurrency(breakdown.employerContributions.bhyt, "VND")}
-  - BHTN: ${formatCurrency(breakdown.employerContributions.bhtn, "VND")}
-  - Total Employer Insurance: ${formatCurrency(breakdown.employerContributions.total, "VND")}
+  - BHTN: ${formatCurrency(breakdown.employerContributions.bhtn, "VND")}`;
+    if (breakdown.employerContributions.tradeUnionFee > 0) {
+      textToCopy += `
+  - Trade Union Fee (2%): ${formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND")}`;
+    }
+    textToCopy += `
+  - Total Employer Contributions: ${formatCurrency(breakdown.employerContributions.total, "VND")}
 
-Total Employer Cost (Gross Salary + Employer Insurance) (VND): ${formatCurrency(breakdown.totalEmployerCost, "VND")}
+Total Employer Cost (Gross Salary + Employer Contributions) (VND): ${formatCurrency(breakdown.totalEmployerCost, "VND")}
 ---------------------------------
 Calculation based on provided inputs.
     `;
@@ -329,8 +334,14 @@ Calculation based on provided inputs.
                     <span className="text-muted-foreground">BHTN (NSDLĐ đóng):</span>
                     <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhtn, "VND")}</span>
                 </div>
+                {breakdown.employerContributions.tradeUnionFee > 0 && (
+                  <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                      <span className="text-muted-foreground">Kinh phí Công đoàn (2%):</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND")}</span>
+                  </div>
+                )}
                  <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                    <span className="text-muted-foreground">Tổng BH NSDLĐ đóng:</span>
+                    <span className="text-muted-foreground">Tổng các khoản NSDLĐ đóng:</span>
                     <span className="text-foreground">{formatCurrency(breakdown.employerContributions.total, "VND")}</span>
                 </div>
             </div>
