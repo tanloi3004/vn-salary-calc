@@ -19,11 +19,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  i18n: {
-    locales: ['vi', 'en'],
-    defaultLocale: 'vi',
-    localeDetection: false, // Explicitly disable automatic locale detection
-  },
   experimental: {
     turbo: {
       rules: {},
