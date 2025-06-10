@@ -84,7 +84,7 @@ function calculateProgressiveTax(taxableIncome: number): { totalTax: number; tax
 }
 
 
-function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit<SalaryResult, 'currency' | 'originalAmount' | 'isGrossMode'> {
+function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit<SalaryResult, 'currency' | 'originalAmount' | 'isGrossMode' | 'dependents' | 'usdExchangeRateForDisplay'> {
   const minInsuranceFloor = REGION_MINIMUM_WAGE_VND_LEGAL[input.region];
 
   // Determine initial insurance base before capping
@@ -146,18 +146,10 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
   const totalEmployerInsuranceAndFees = bhxhEmployer + bhytEmployer + bhtnEmployer + tradeUnionFeeAmount;
   const totalEmployerCost = grossSalaryVND + totalEmployerInsuranceAndFees;
   
-  let grossForOutput = grossSalaryVND;
-  let netForOutput = netSalaryVND;
-
-  if (input.currency !== 'VND' && input.exchangeRate && input.exchangeRate > 0) {
-      grossForOutput = grossSalaryVND / input.exchangeRate;
-      netForOutput = netSalaryVND / input.exchangeRate;
-  }
-
-
+  // These are VND values; conversion to original currency happens in computeSalary
   return {
-    gross: grossForOutput,
-    net: netForOutput,
+    gross: grossSalaryVND, 
+    net: netSalaryVND,
     breakdown: {
       grossSalaryVND,
       netSalaryVND,
@@ -188,21 +180,28 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
 
 export function computeSalary(input: SalaryInput): SalaryResult {
   let salaryInVND = input.salaryInput;
+  let relevantExchangeRate = 1;
 
-  if (input.currency !== 'VND' && input.exchangeRate && input.exchangeRate > 0) {
-    salaryInVND = input.salaryInput * input.exchangeRate;
+  if (input.currency === 'USD' && input.usdExchangeRate > 0) {
+    salaryInVND = input.salaryInput * input.usdExchangeRate;
+    relevantExchangeRate = input.usdExchangeRate;
+  } else if (input.currency === 'JPY' && input.jpyExchangeRate && input.jpyExchangeRate > 0) {
+    salaryInVND = input.salaryInput * input.jpyExchangeRate;
+    relevantExchangeRate = input.jpyExchangeRate;
   }
 
 
   if (input.isGrossMode) {
-    const result = calculateNetFromGross(salaryInVND, input);
+    const resultFromGross = calculateNetFromGross(salaryInVND, input);
      return {
-      ...result, 
-      gross: (input.currency !== 'VND' && input.exchangeRate) ? input.salaryInput : result.breakdown.grossSalaryVND,
-      net: (input.currency !== 'VND' && input.exchangeRate && result.breakdown.netSalaryVND > 0) ? result.breakdown.netSalaryVND / input.exchangeRate : result.breakdown.netSalaryVND,
+      gross: input.currency === 'VND' ? resultFromGross.breakdown.grossSalaryVND : input.salaryInput,
+      net: input.currency === 'VND' ? resultFromGross.breakdown.netSalaryVND : resultFromGross.breakdown.netSalaryVND / relevantExchangeRate,
+      breakdown: resultFromGross.breakdown,
       currency: input.currency,
       originalAmount: input.salaryInput,
       isGrossMode: true,
+      dependents: input.dependents,
+      usdExchangeRateForDisplay: input.usdExchangeRate,
     };
   } else { 
     const targetNetVND = salaryInVND;
@@ -247,22 +246,15 @@ export function computeSalary(input: SalaryInput): SalaryResult {
         lastResultBreakdown = calculateNetFromGross(estimatedGrossVND, input).breakdown;
     }
     
-    let finalGrossForOutput = lastResultBreakdown.grossSalaryVND;
-    let finalNetForOutput = lastResultBreakdown.netSalaryVND;
-
-    if (input.currency !== 'VND' && input.exchangeRate && input.exchangeRate > 0) {
-        finalGrossForOutput = lastResultBreakdown.grossSalaryVND / input.exchangeRate;
-        finalNetForOutput = input.salaryInput; 
-    }
-
-
     return {
-      gross: finalGrossForOutput,
-      net: finalNetForOutput,
+      gross: input.currency === 'VND' ? lastResultBreakdown.grossSalaryVND : lastResultBreakdown.grossSalaryVND / relevantExchangeRate,
+      net: input.currency === 'VND' ? lastResultBreakdown.netSalaryVND : input.salaryInput,
       breakdown: lastResultBreakdown,
       currency: input.currency,
       originalAmount: input.salaryInput,
       isGrossMode: false,
+      dependents: input.dependents,
+      usdExchangeRateForDisplay: input.usdExchangeRate,
     };
   }
 }

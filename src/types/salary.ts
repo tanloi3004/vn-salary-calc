@@ -9,7 +9,8 @@ export interface SalaryInput {
   salaryInput: number;
   isGrossMode: boolean;
   currency: Currency;
-  exchangeRate?: number;
+  usdExchangeRate: number; // USD to VND exchange rate
+  jpyExchangeRate?: number; // JPY to VND exchange rate
   insuranceBasis: InsuranceBasis;
   insuranceCustom?: number;
   taxCalculationMethod: TaxCalculationMethod;
@@ -27,8 +28,8 @@ export interface ProgressiveTaxDetail {
 }
 
 export interface SalaryResult {
-  gross: number;
-  net: number;
+  gross: number; // In original currency
+  net: number; // In original currency
   breakdown: {
     grossSalaryVND: number;
     netSalaryVND: number;
@@ -56,6 +57,8 @@ export interface SalaryResult {
   currency: Currency;
   originalAmount: number;
   isGrossMode: boolean;
+  dependents: number; // Added for display in result
+  usdExchangeRateForDisplay: number; // Added for displaying USD equivalent
 }
 
 export interface CalculationHistoryEntry {

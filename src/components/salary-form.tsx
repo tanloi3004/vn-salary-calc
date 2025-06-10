@@ -62,9 +62,10 @@ const getMsg = (messages: any, key: string, defaultText = '') => {
 
 
 const formSchema = z.object({
-  salaryInput: z.coerce.number().min(0, "Thu nhập phải là số dương"), // Error message will be from Zod, not translated here directly
+  salaryInput: z.coerce.number().min(0, "Thu nhập phải là số dương"),
   currency: z.enum(["VND", "USD", "JPY"]),
-  exchangeRate: z.coerce.number().optional(),
+  usdExchangeRate: z.coerce.number().positive("Tỷ giá USD phải là số dương"),
+  jpyExchangeRate: z.coerce.number().optional(),
   insuranceBasis: z.enum(["official", "custom"]),
   insuranceCustom: z.coerce.number().optional(),
   taxCalculationMethod: z.enum(["progressive", "flat10"]),
@@ -73,11 +74,11 @@ const formSchema = z.object({
   nationality: z.enum(["VN", "Foreign"]),
   hasTradeUnionFee: z.boolean().optional().default(false),
 }).superRefine((data, ctx) => {
-  if (data.currency !== "VND" && (data.exchangeRate === undefined || data.exchangeRate <= 0)) {
+  if (data.currency === "JPY" && (data.jpyExchangeRate === undefined || data.jpyExchangeRate <= 0)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Tỷ giá hối đoái là bắt buộc và phải lớn hơn 0 khi chọn ngoại tệ.", // This refine message should also be translatable
-      path: ["exchangeRate"],
+      message: "Tỷ giá JPY là bắt buộc và phải lớn hơn 0 khi chọn JPY.", // This refine message should also be translatable
+      path: ["jpyExchangeRate"],
     });
   }
   if (data.insuranceBasis === "custom" && (data.insuranceCustom === undefined || data.insuranceCustom <= 0)) {
@@ -104,7 +105,8 @@ interface SalaryFormProps {
 const defaultValues: Partial<SalaryFormValues> = {
   salaryInput: 50000000,
   currency: "VND",
-  exchangeRate: 25000,
+  usdExchangeRate: 25000,
+  // jpyExchangeRate will be undefined by default
   insuranceBasis: "official",
   taxCalculationMethod: "progressive",
   region: 1,
@@ -161,7 +163,8 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     const salaryData: SalaryInput = {
       ...values,
       isGrossMode,
-      exchangeRate: values.currency === 'VND' ? undefined : values.exchangeRate,
+      usdExchangeRate: values.usdExchangeRate,
+      jpyExchangeRate: values.currency === 'JPY' ? values.jpyExchangeRate : undefined,
       insuranceCustom: values.insuranceBasis === 'custom' ? values.insuranceCustom : undefined,
       region: values.region as Region,
       nationality: values.nationality as Nationality,
@@ -173,12 +176,6 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
       description: generalMessages.calculationDoneDesc,
     });
   }
-
-  const getExchangeRateLabel = (currency: Currency | undefined) => {
-    if (currency === "USD") return messages.exchangeRateLabelUSD;
-    if (currency === "JPY") return messages.exchangeRateLabelJPY;
-    return "Exchange Rate"; // Fallback
-  };
   
   const currentRegionMinimumWage = watchedRegion ? REGION_MINIMUM_WAGE_VND_LEGAL[watchedRegion as Region] : null;
   const currentRegionName = REGION_OPTION_KEYS.find(opt => opt.value === watchedRegion)?.labelKey;
@@ -256,18 +253,41 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 )}
               />
             </div>
+            
+            <FormField
+              control={form.control}
+              name="usdExchangeRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {messages.exchangeRateLabelUSD}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder={messages.exchangeRatePlaceholder}
+                      {...field}
+                      value={formatVNNumberForInput(field.value)}
+                      onChange={(e) => {
+                        const numericString = cleanToNumericString(e.target.value);
+                         field.onChange(numericString === '' ? undefined : Number(numericString));
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            {watchedCurrency !== "VND" && (
+            {watchedCurrency === "JPY" && (
               <FormField
                 control={form.control}
-                name="exchangeRate"
+                name="jpyExchangeRate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {getExchangeRateLabel(watchedCurrency)}</FormLabel>
+                    <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {messages.exchangeRateLabelJPY}</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder={messages.exchangeRatePlaceholder}
+                        placeholder={messages.exchangeRatePlaceholderJPY}
                         {...field}
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
@@ -503,4 +523,3 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     </Card>
   );
 }
-

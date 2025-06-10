@@ -4,7 +4,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent, PieChart as PieChartIcon, Briefcase, ListChecks, FileSpreadsheet, Printer } from "lucide-react";
+import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent, PieChart as PieChartIcon, Briefcase, ListChecks, FileSpreadsheet, Printer, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SalaryResult } from "@/types/salary";
 import { useState, useEffect, useRef } from "react";
@@ -57,17 +57,17 @@ const formatCurrency = (value: number | undefined, currency: string = "VND", loc
         maximumFractionDigits: 0,
       });
     }
-  } else {
+  } else { // For USD, JPY
     try {
       return new Intl.NumberFormat(effectiveLocale, {
         style: 'currency',
         currency: currency,
-        currencyDisplay: 'symbol',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        currencyDisplay: 'symbol', // Use symbol for USD, JPY
+        minimumFractionDigits: (currency === "JPY" ? 0 : 2), // JPY usually has 0 decimals
+        maximumFractionDigits: (currency === "JPY" ? 0 : 2),
       }).format(value);
     } catch (e) {
-      const numericPart = new Intl.NumberFormat(effectiveLocale, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+      const numericPart = new Intl.NumberFormat(effectiveLocale, { style: 'decimal', minimumFractionDigits: (currency === "JPY" ? 0 : 2), maximumFractionDigits: (currency === "JPY" ? 0 : 2) }).format(value);
       return `${numericPart} ${currency}`;
     }
   }
@@ -76,16 +76,23 @@ const formatCurrency = (value: number | undefined, currency: string = "VND", loc
 const formatCurrencyForClipboard = (value: number, currency: string, localeForFormatting: string = "vi-VN") => {
     if (isNaN(value)) value = 0;
     const effectiveLocale = localeForFormatting === "vi" ? "vi-VN" : "en-US";
+    const options: Intl.NumberFormatOptions = {
+        style: 'currency',
+        currency: currency,
+        currencyDisplay: 'code', // Use currency code for clipboard
+        minimumFractionDigits: (currency === "JPY" ? 0 : 2),
+        maximumFractionDigits: (currency === "JPY" ? 0 : 2),
+    };
     try {
-      return new Intl.NumberFormat(effectiveLocale, { style: 'currency', currency: currency, currencyDisplay: 'code' }).format(value);
+      return new Intl.NumberFormat(effectiveLocale, options).format(value);
     } catch {
-       return `${value.toFixed(0)} ${currency}`;
+       return `${value.toFixed((currency === "JPY" ? 0 : 2))} ${currency}`;
     }
 }
 
 const formatNumberForExport = (value: number | undefined): number => {
   if (value === undefined || isNaN(value)) return 0;
-  return Number(value.toFixed(0));
+  return Number(value.toFixed(0)); // Keep as 0 decimal for VND, but general for other currencies if used
 };
 
 
@@ -104,16 +111,28 @@ export default function ResultCard({ result, locale, messages }: ResultCardProps
   const handleCopyToClipboard = () => {
     if (!result) return;
 
-    const { gross, net, breakdown, isGrossMode, originalAmount, currency } = result;
+    const { gross, net, breakdown, isGrossMode, originalAmount, currency, dependents, usdExchangeRateForDisplay } = result;
     const inputType = isGrossMode ? "Gross" : "Net";
     const outputType = isGrossMode ? "Net" : "Gross";
+    const finalOutputAmount = isGrossMode ? net : gross;
     
     let textToCopy = `
 VN Salary Calculation Result:
 ---------------------------------
 Input Salary (${inputType} ${currency}): ${formatCurrencyForClipboard(originalAmount, currency, locale)}
-Calculated ${outputType} (${currency}): ${formatCurrencyForClipboard(isGrossMode ? net : gross, currency, locale)}
----------------------------------
+Number of Dependents: ${dependents}
+Calculated ${outputType} (${currency}): ${formatCurrencyForClipboard(finalOutputAmount, currency, locale)}
+`;
+    if (currency === 'VND' && usdExchangeRateForDisplay > 0) {
+      textToCopy += `USD Equivalent: ${formatCurrencyForClipboard( (isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND) / usdExchangeRateForDisplay, 'USD', locale)}\n`;
+    } else if (currency === 'JPY' && usdExchangeRateForDisplay > 0) {
+      textToCopy += `USD Equivalent: ${formatCurrencyForClipboard( (isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND) / usdExchangeRateForDisplay, 'USD', locale)}\n`;
+    }
+    if (currency !== 'VND') {
+        textToCopy += `VND Equivalent: ${formatCurrencyForClipboard(isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND, 'VND', locale)}\n`;
+    }
+
+textToCopy += `---------------------------------
 Details (all amounts in VND unless specified):
 Gross Salary (VND): ${formatCurrency(breakdown.grossSalaryVND, "VND", locale)}
 Net Salary (VND): ${formatCurrency(breakdown.netSalaryVND, "VND", locale)}
@@ -177,14 +196,29 @@ Calculation based on provided inputs.
 
   const handleExportToExcel = () => {
     if (!result) return;
-    const { gross, net, breakdown, isGrossMode, originalAmount, currency } = result;
+    const { gross, net, breakdown, isGrossMode, originalAmount, currency, dependents, usdExchangeRateForDisplay } = result;
+    const finalOutputAmount = isGrossMode ? net : gross;
 
-    const dataToExport = [
+    const dataToExport: (string | number | undefined)[][] = [
       ["VN SALARY CALCULATION RESULT"], // This header can be translated if needed
       [],
       ["Calculation Mode:", isGrossMode ? "Gross to Net" : "Net to Gross"],
       [`Input Salary (${currency}):`, originalAmount],
-      [`Calculated ${isGrossMode ? "Net" : "Gross"} (${currency}):`, isGrossMode ? net : gross],
+      ["Number of Dependents:", dependents],
+      [`Calculated ${isGrossMode ? "Net" : "Gross"} (${currency}):`, finalOutputAmount],
+    ];
+
+    if (currency === 'VND' && usdExchangeRateForDisplay > 0) {
+      dataToExport.push([`USD Equivalent:`, (isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND) / usdExchangeRateForDisplay]);
+    } else if (currency === 'JPY' && usdExchangeRateForDisplay > 0) {
+       dataToExport.push([`USD Equivalent:`, (isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND) / usdExchangeRateForDisplay]);
+    }
+    if (currency !== 'VND') {
+        dataToExport.push([`VND Equivalent:`, isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND]);
+    }
+
+
+    dataToExport.push(
       [],
       ["DETAILS (VND)"],
       ["Gross Salary (VND):", formatNumberForExport(breakdown.grossSalaryVND)],
@@ -200,8 +234,8 @@ Calculation based on provided inputs.
       [],
       ["PERSONAL INCOME TAX (PIT) (VND)"],
       ["Taxable Income:", formatNumberForExport(breakdown.taxableIncome)],
-      ["PIT Amount:", formatNumberForExport(breakdown.personalIncomeTax)],
-    ];
+      ["PIT Amount:", formatNumberForExport(breakdown.personalIncomeTax)]
+    );
 
     if (breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.length > 0 && breakdown.personalIncomeTax > 0) {
       dataToExport.push(["PIT Breakdown by Brackets (VND):"]);
@@ -209,7 +243,7 @@ Calculation based on provided inputs.
       breakdown.progressiveTaxDetails.forEach(detail => {
         if (detail.incomeInBracket > 0 || (breakdown.personalIncomeTax === 0 && breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.indexOf(detail) === 0) ) {
            dataToExport.push([
-            detail.bracketLabel, // This label is from types/salary.ts, potentially needs i18n
+            detail.bracketLabel, 
             formatNumberForExport(detail.incomeInBracket),
             `${(detail.rate * 100).toFixed(0)}%`,
             formatNumberForExport(detail.taxAmountInBracket),
@@ -359,9 +393,9 @@ Calculation based on provided inputs.
     );
   }
 
-  const { gross, net, breakdown, isGrossMode, currency, originalAmount } = result;
-  const displayInputType = isGrossMode ? "Gross" : "Net";
-  const displayOutputType = isGrossMode ? "Net" : "Gross";
+  const { gross, net, breakdown, isGrossMode, currency, originalAmount, dependents, usdExchangeRateForDisplay } = result;
+  const displayInputType = isGrossMode ? messages.grossInputLabel : messages.netInputLabel;
+  const displayOutputType = isGrossMode ? messages.netOutputLabel : messages.grossOutputLabel;
   const displayOutputValue = isGrossMode ? net : gross;
 
   const chartData = breakdown.grossSalaryVND > 0 ? [
@@ -389,14 +423,16 @@ Calculation based on provided inputs.
           {isGrossMode ? messages.resultTitleNet : messages.resultTitleGross}
         </CardTitle>
         <CardDescription>
-          {isGrossMode ? messages.fromInputGross : messages.fromInputNet} {formatCurrency(originalAmount, currency, locale)} {currency !== "VND" ? "" : currency}
+          {messages.fromInputSalary.replace("{type}", displayInputType)} {formatCurrency(originalAmount, currency, locale)} {currency !== "VND" ? currency : ""}
+          <br />
+          {messages.dependentsLabelResult.replace("{count}", String(dependents))}
         </CardDescription>
       </CardHeader>
       <div ref={printableRef}>
         <CardContent className="space-y-6">
           <div className="text-center py-6 bg-accent/20 rounded-lg">
             <p className="text-sm font-medium text-muted-foreground">
-              {isGrossMode ? messages.outputAmountLabelNet : messages.outputAmountLabelGross} {currency !== "VND" ? `(${currency})` : "(VND)"}
+              {displayOutputType} {currency !== "VND" ? `(${currency})` : ""}
             </p>
             <p className="text-4xl font-bold text-primary mt-1">
               {formatCurrency(displayOutputValue, currency, locale)}
@@ -405,6 +441,11 @@ Calculation based on provided inputs.
               <p className="text-xs text-muted-foreground mt-1">
                  {messages.equivalentToVND.replace("{amount}", formatCurrency(isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND, "VND", locale))}
               </p>
+            )}
+            {(currency === 'VND' || currency === 'JPY') && usdExchangeRateForDisplay > 0 && (
+                 <p className="text-xs text-muted-foreground mt-1">
+                    {messages.equivalentToUSD.replace("{amount}", formatCurrency( (isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND) / usdExchangeRateForDisplay, "USD", locale))}
+                </p>
             )}
           </div>
           
