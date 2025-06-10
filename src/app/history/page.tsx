@@ -1,6 +1,9 @@
 
-// This file is effectively removed as its content is moved to /src/app/[locale]/history/page.tsx
-// You can delete this file manually.
-// For the purpose of this tool, providing empty content or a comment signals deletion.
+import { redirect } from 'next/navigation';
 
-// This file is no longer used. The history page is now at src/app/[locale]/history/page.tsx.
+export default function HistoryRedirectPage() {
+  const defaultLocale = 'vi'; // Hardcode the default locale
+  redirect(`/${defaultLocale}/history`);
+  // This component will not render anything as redirect() aborts rendering.
+  // return null;
+}

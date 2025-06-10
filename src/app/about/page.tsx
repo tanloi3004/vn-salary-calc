@@ -1,6 +1,9 @@
 
-// This file is effectively removed as its content is moved to /src/app/[locale]/about/page.tsx
-// You can delete this file manually.
-// For the purpose of this tool, providing empty content or a comment signals deletion.
+import { redirect } from 'next/navigation';
 
-// This file is no longer used. The about page is now at src/app/[locale]/about/page.tsx.
+export default function AboutRedirectPage() {
+  const defaultLocale = 'vi'; // Hardcode the default locale
+  redirect(`/${defaultLocale}/about`);
+  // This component will not render anything as redirect() aborts rendering.
+  // return null;
+}
