@@ -39,9 +39,9 @@ const getMsg = (messages: any, key: string, defaultText = '') => {
 };
 
 
-export default function HomePage({ params }: HomePageProps) { // Changed params destructuring
-  const unwrappedParams = use(params as any); // Use React.use
-  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+export default function HomePage({ params }: HomePageProps) { 
+  const unwrappedParams = use(params as any); 
+  const locale = unwrappedParams.locale; 
 
   const messages = locale === 'vi' ? viMessages : enMessages;
   const salaryFormMessages = messages.salaryForm;
@@ -104,16 +104,6 @@ export default function HomePage({ params }: HomePageProps) { // Changed params 
     ? { salaryInput: isGrossMode ? calculationResult.gross : calculationResult.net, currency: calculationResult.currency }
     : undefined;
 
-  // Simplified legal basis for brevity in this example
-  const legalBasisSection1Intro = legalBasisMessages.section1Intro;
-  const lawPitTitle = legalBasisMessages.lawPitTitle;
-  const lawPitDetail1 = legalBasisMessages.lawPitDetail1;
-  const lawPitDetail2 = legalBasisMessages.lawPitDetail2;
-  const lawPitSource = legalBasisMessages.lawPitSource;
-  const lawBhxhTitle = legalBasisMessages.lawBhxhTitle;
-  const lawBhxhDetail1 = legalBasisMessages.lawBhxhDetail1;
-
-
   return (
     <div className="space-y-8">
       <div className="grid lg:grid-cols-2 gap-8 items-start">
@@ -144,18 +134,17 @@ export default function HomePage({ params }: HomePageProps) { // Changed params 
             </TabsList>
             <TabsContent value="explanation">
               <Card>
-                <CardHeader><CardTitle>{getMsg(messages, "calculatorTabs.explanation", "Giải thích cách tính lương")}</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{getMsg(messages, "calculatorTabs.explanationContent.title", "Giải thích cách tính lương")}</CardTitle></CardHeader>
                 <CardContent className="prose prose-sm max-w-none">
-                  {/* This content should also be translated using keys from messages */}
-                  <p>Công cụ này tính toán lương dựa trên các thông số bạn cung cấp, bao gồm:</p>
+                  <p dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.explanationContent.intro", "") }} />
                   <ul>
-                    <li><strong>Lương Gross:</strong> Tổng thu nhập trước khi trừ bảo hiểm và thuế.</li>
-                    <li><strong>Bảo hiểm xã hội (BHXH), Bảo hiểm y tế (BHYT), Bảo hiểm thất nghiệp (BHTN):</strong> Được tính dựa trên mức lương đóng bảo hiểm và tỷ lệ quy định. Mức lương đóng BH có thể là lương gross hoặc mức tùy chọn (không thấp hơn lương tối thiểu vùng và không quá 20 lần lương cơ sở cho BHXH/BHYT, hoặc 20 lần lương tối thiểu vùng cho BHTN).</li>
-                    <li><strong>Thuế thu nhập cá nhân (TNCN):</strong> Tính trên thu nhập chịu thuế (Lương Gross - Các khoản bảo hiểm - Giảm trừ gia cảnh). Áp dụng biểu thuế lũy tiến từng phần hoặc thuế suất cố định (tùy chọn).</li>
-                    <li><strong>Giảm trừ gia cảnh:</strong> Bao gồm giảm trừ cho bản thân người nộp thuế và người phụ thuộc (nếu có).</li>
-                    <li><strong>Lương Net:</strong> Là lương thực nhận sau khi đã trừ tất cả các khoản bảo hiểm và thuế TNCN.</li>
+                    <li dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.explanationContent.item1", "") }} />
+                    <li dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.explanationContent.item2", "") }} />
+                    <li dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.explanationContent.item3", "") }} />
+                    <li dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.explanationContent.item4", "") }} />
+                    <li dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.explanationContent.item5", "") }} />
                   </ul>
-                  <p>Khi tính từ <strong>Net sang Gross</strong>, công cụ sử dụng phương pháp tính toán lặp để tìm ra mức lương Gross tương ứng.</p>
+                  <p dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.explanationContent.netToGross", "") }} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -167,43 +156,197 @@ export default function HomePage({ params }: HomePageProps) { // Changed params 
                     <AccordionItem value="section-1-legal-basis">
                       <AccordionTrigger className="text-xl font-semibold hover:no-underline">{legalBasisMessages.section1Title}</AccordionTrigger>
                       <AccordionContent className="pt-2">
-                        <p className="prose prose-sm max-w-none mb-2" dangerouslySetInnerHTML={{ __html: legalBasisSection1Intro }} />
+                        <p className="prose prose-sm max-w-none mb-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.section1Intro }} />
                         <Accordion type="multiple" className="w-full">
-                          <AccordionItem value="law-tncn">
-                            <AccordionTrigger>{lawPitTitle}</AccordionTrigger>
+                          {/* PIT Law */}
+                          <AccordionItem value="law-pit">
+                            <AccordionTrigger>{legalBasisMessages.lawPitTitle}</AccordionTrigger>
                             <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
                               <ul>
-                                <li dangerouslySetInnerHTML={{ __html: lawPitDetail1 }} />
-                                <li dangerouslySetInnerHTML={{ __html: lawPitDetail2 }} />
-                                <li><strong>{locale === 'vi' ? 'Nguồn tham khảo' : 'Reference'}:</strong> <a href="https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Luat-thue-thu-nhap-ca-nhan-2007-04-2007-QH12-50179.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />{lawPitSource}</a>.</li>
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawPitDetail1 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawPitDetail2 }} />
+                                <li><strong>{legalBasisMessages.sourceReferenceLabel}:</strong> <a href={legalBasisMessages.lawPitSourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawPitSource}</a></li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
-                          <AccordionItem value="law-bhxh">
-                            <AccordionTrigger>{lawBhxhTitle}</AccordionTrigger>
+                          {/* Social Insurance Law */}
+                          <AccordionItem value="law-si">
+                            <AccordionTrigger>{legalBasisMessages.lawSiTitle}</AccordionTrigger>
                             <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
                                <ul>
-                                <li dangerouslySetInnerHTML={{ __html: lawBhxhDetail1 }} />
-                                {/* Add more translated details here */}
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawSiDetail1 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawSiDetail2 }} />
+                                <li><strong>{legalBasisMessages.sourceReferenceLabel}:</strong> <a href={legalBasisMessages.lawSiSourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawSiSource}</a></li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
-                          {/* Add other laws here, translated */}
+                          {/* Health Insurance Law */}
+                          <AccordionItem value="law-hi">
+                            <AccordionTrigger>{legalBasisMessages.lawHiTitle}</AccordionTrigger>
+                            <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
+                              <ul>
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawHiDetail1 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawHiDetail2 }} />
+                                <li><strong>{legalBasisMessages.sourceReferenceLabel}:</strong> <a href={legalBasisMessages.lawHiSourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawHiSource}</a></li>
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                          {/* Employment Law (UI) */}
+                           <AccordionItem value="law-ui">
+                            <AccordionTrigger>{legalBasisMessages.lawUiTitle}</AccordionTrigger>
+                            <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
+                              <ul>
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawUiDetail1 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawUiDetail2 }} />
+                                <li><strong>{legalBasisMessages.sourceReferenceLabel}:</strong> <a href={legalBasisMessages.lawUiSourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawUiSource}</a></li>
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                          {/* Regional Minimum Wage */}
+                          <AccordionItem value="law-min-wage">
+                            <AccordionTrigger>{legalBasisMessages.lawMinWageTitle}</AccordionTrigger>
+                            <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
+                              <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawMinWageDetail1 }} />
+                              <ul className="list-disc ml-5">
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawMinWageItem1 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawMinWageItem2 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawMinWageItem3 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawMinWageItem4 }} />
+                              </ul>
+                              <p><strong>{legalBasisMessages.sourceReferenceLabel}:</strong> <a href={legalBasisMessages.lawMinWageSourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawMinWageSource}</a></p>
+                            </AccordionContent>
+                          </AccordionItem>
+                          {/* Base Salary */}
+                          <AccordionItem value="law-base-salary">
+                            <AccordionTrigger>{legalBasisMessages.lawBaseSalaryTitle}</AccordionTrigger>
+                            <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
+                              <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawBaseSalaryDetail1 }} />
+                              <p><strong>{legalBasisMessages.sourceReferenceLabel}:</strong> <a href={legalBasisMessages.lawBaseSalarySourceLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawBaseSalarySource}</a></p>
+                            </AccordionContent>
+                          </AccordionItem>
+                           {/* Related Decrees */}
+                          <AccordionItem value="law-related-decrees">
+                            <AccordionTrigger>{legalBasisMessages.lawRelatedDecreesTitle}</AccordionTrigger>
+                            <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
+                              <ul className="list-disc ml-5">
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawRelatedDecreesItem1 }} />
+                                <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.lawRelatedDecreesItem2 }} />
+                                <li><strong>{legalBasisMessages.sourceReferenceLabel}:</strong>
+                                  <a href={legalBasisMessages.lawRelatedDecreesSource1Link} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center ml-1"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawRelatedDecreesSource1Label}</a>,
+                                  <a href={legalBasisMessages.lawRelatedDecreesSource2Link} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center ml-1"><Link2 size={14} className="mr-1" />{legalBasisMessages.lawRelatedDecreesSource2Label}</a>
+                                </li>
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
                         </Accordion>
                       </AccordionContent>
                     </AccordionItem>
+
+                    {/* Section 2: How to Calculate */}
                     <AccordionItem value="section-2-calculation-method">
-                      <AccordionTrigger className="text-xl font-semibold hover:no-underline">{getMsg(messages, "legalBasis.section2Title", "2. Cách tính lương...")}</AccordionTrigger>
+                      <AccordionTrigger className="text-xl font-semibold hover:no-underline">{legalBasisMessages.section2Title}</AccordionTrigger>
                       <AccordionContent className="prose prose-sm max-w-none pt-2">
-                        {/* Content for calculation method, needs translation */}
-                        <p>...</p>
+                        <h4 dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_1Title }} />
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_1_p1 }} />
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_1_p2 }} />
+                        <pre><code dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_1_formula }} /></pre>
+
+                        <h4 dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_2Title }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_2_item1 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_2_item2 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_2_item3 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_2_note }} />
+                        </ul>
+
+                        <h4 dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_3Title }} />
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_3_p1 }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_3_p2_item1 }} />
+                        </ul>
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_3_p3_title }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_3_p3_item1 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_3_p3_item2 }} />
+                        </ul>
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_3_p4_title }} />
+                        <div className="overflow-x-auto">
+                          <table className="w-full my-2 border-collapse border border-border">
+                            <thead>
+                              <tr>
+                                <th className="border border-border p-2 text-left" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableCol1 }} />
+                                <th className="border border-border p-2 text-left" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableCol2 }} />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow1_1 }} />
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow1_2 }} />
+                              </tr>
+                              <tr>
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow2_1 }} />
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow2_2 }} />
+                              </tr>
+                              <tr>
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow3_1 }} />
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow3_2 }} />
+                              </tr>
+                              <tr>
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow4_1 }} />
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow4_2 }} />
+                              </tr>
+                              <tr>
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow5_1 }} />
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow5_2 }} />
+                              </tr>
+                              <tr>
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow6_1 }} />
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow6_2 }} />
+                              </tr>
+                              <tr>
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow7_1 }} />
+                                <td className="border border-border p-2" dangerouslySetInnerHTML={{ __html: legalBasisMessages.taxTableRow7_2 }} />
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        <h4 dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4Title }} />
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_intro }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_intro_item1 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_intro_item2 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_intro_item3 }} />
+                        </ul>
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step1Title }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step1_item1 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step1_item2 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step1_item3 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step1_item4 }} />
+                        </ul>
+                         <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step2Title }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step2_item1 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step2_item2 }} />
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step2_item3 }} />
+                        </ul>
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step3Title }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step3_item1 }} />
+                        </ul>
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step4Title }} />
+                        <ul>
+                          <li dangerouslySetInnerHTML={{ __html: legalBasisMessages.section2_4_step4_item1 }} />
+                        </ul>
                       </AccordionContent>
                     </AccordionItem>
+
+                    {/* Section 3: Notes */}
                      <AccordionItem value="section-3-notes">
-                      <AccordionTrigger className="text-xl font-semibold hover:no-underline">{getMsg(messages, "legalBasis.section3Title", "3. Lưu ý")}</AccordionTrigger>
+                      <AccordionTrigger className="text-xl font-semibold hover:no-underline">{legalBasisMessages.section3Title}</AccordionTrigger>
                       <AccordionContent className="prose prose-sm max-w-none pt-2">
-                         {/* Content for notes, needs translation */}
-                        <p>...</p>
+                        <p dangerouslySetInnerHTML={{ __html: legalBasisMessages.section3_item1 }} />
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
@@ -212,12 +355,11 @@ export default function HomePage({ params }: HomePageProps) { // Changed params 
             </TabsContent>
             <TabsContent value="disclaimer">
               <Card>
-                <CardHeader><CardTitle>{getMsg(messages, "calculatorTabs.disclaimer", "Lưu ý quan trọng")}</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{getMsg(messages, "calculatorTabs.disclaimerContent.title", "Lưu ý quan trọng")}</CardTitle></CardHeader>
                 <CardContent className="prose prose-sm max-w-none">
-                   {/* This content should also be translated using keys from messages */}
-                  <p>Kết quả từ công cụ này chỉ mang tính chất tham khảo và ước tính. Các yếu tố thực tế tại doanh nghiệp của bạn (như phụ cấp, các khoản thưởng khác, chính sách công ty) có thể ảnh hưởng đến con số cuối cùng.</p>
-                  <p>Chúng tôi cố gắng đảm bảo tính chính xác và cập nhật của thông tin, tuy nhiên không chịu trách nhiệm pháp lý cho bất kỳ sai sót nào.</p>
-                  <p>Để có thông tin chính xác nhất, vui lòng tham khảo ý kiến của chuyên gia tư vấn thuế hoặc bộ phận nhân sự của bạn.</p>
+                  <p dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.disclaimerContent.p1", "")}} />
+                  <p dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.disclaimerContent.p2", "")}} />
+                  <p dangerouslySetInnerHTML={{ __html: getMsg(messages, "calculatorTabs.disclaimerContent.p3", "")}} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -227,3 +369,5 @@ export default function HomePage({ params }: HomePageProps) { // Changed params 
     </div>
   );
 }
+
+    
