@@ -1,5 +1,5 @@
 
-import { use } from 'react'; // Added use
+import { use } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Info } from "lucide-react";
 
@@ -12,9 +12,9 @@ interface AboutPageProps {
   };
 }
 
-export default function AboutPage({ params }: AboutPageProps) { // Changed params destructuring
-  const unwrappedParams = use(params); // Use React.use
-  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+export default function AboutPage({ params }: AboutPageProps) {
+  const unwrappedParams = use(params as any);
+  const locale = unwrappedParams.locale;
 
   const messages = locale === 'vi' ? viMessages.aboutPage : enMessages.aboutPage;
 
@@ -33,14 +33,14 @@ export default function AboutPage({ params }: AboutPageProps) { // Changed param
         <CardContent className="prose prose-sm md:prose-base max-w-none text-foreground">
           <p dangerouslySetInnerHTML={{ __html: messages.intro }} />
           
-          <h4>{messages.goalsTitle}</h4>
+          <h3>{messages.goalsTitle}</h3>
           <ul>
             <li>{messages.goal1}</li>
             <li>{messages.goal2}</li>
             <li>{messages.goal3}</li>
           </ul>
 
-          <h4>{messages.featuresTitle}</h4>
+          <h3>{messages.featuresTitle}</h3>
           <ul>
             <li>{messages.feature1}</li>
             <li>{messages.feature2}</li>
@@ -49,10 +49,10 @@ export default function AboutPage({ params }: AboutPageProps) { // Changed param
             <li>{messages.feature5}</li>
           </ul>
           
-          <h4>{messages.disclaimerTitle}</h4>
+          <h3>{messages.disclaimerTitle}</h3>
           <p>{messages.disclaimerText}</p>
 
-          <h4>{messages.dataPrivacyTitle}</h4>
+          <h3>{messages.dataPrivacyTitle}</h3>
           <p>{messages.dataPrivacyText}</p>
           
           <p className="text-center mt-6 text-sm text-muted-foreground">
