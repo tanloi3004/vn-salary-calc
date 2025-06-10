@@ -4,7 +4,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent, PieChart as PieChartIcon } from "lucide-react";
+import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent, PieChart as PieChartIcon, Briefcase, ListChecks } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SalaryResult } from "@/types/salary";
 import { useState, useEffect } from "react";
@@ -24,35 +24,46 @@ interface ResultCardProps {
   result: SalaryResult | null;
 }
 
-const formatCurrency = (value: number, currency: string = "VND") => {
-  if (isNaN(value)) value = 0; // Handle NaN gracefully
+const formatCurrency = (value: number | undefined, currency: string = "VND") => {
+  if (value === undefined || isNaN(value)) value = 0;
 
   if (currency === "VND") {
     try {
       return new Intl.NumberFormat('vi-VN', {
-        style: 'decimal',
+        style: 'decimal', // No currency symbol for VND, just number formatting
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }).format(value);
-    } catch (e) {
+    } catch (e) { // Fallback for environments that might not fully support vi-VN options
       return value.toLocaleString('vi-VN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       });
     }
-  } else {
+  } else { // For USD, JPY, etc.
     try {
-      return new Intl.NumberFormat('vi-VN', {
+      return new Intl.NumberFormat('en-US', { // Use en-US for common currency symbols like $
         style: 'currency',
         currency: currency,
-        currencyDisplay: 'symbol', // Use symbol for non-VND like $ or ¥
+        currencyDisplay: 'symbol',
+        minimumFractionDigits: 2, // Common for USD/JPY often have decimals
+        maximumFractionDigits: 2,
       }).format(value);
-    } catch (e) {
-      const numericPart = new Intl.NumberFormat('vi-VN', { style: 'decimal' }).format(value);
+    } catch (e) { // Fallback
+      const numericPart = new Intl.NumberFormat('vi-VN', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
       return `${numericPart} ${currency}`;
     }
   }
 };
+
+const formatCurrencyForClipboard = (value: number, currency: string) => {
+    if (isNaN(value)) value = 0;
+    try {
+      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: currency, currencyDisplay: 'code' }).format(value);
+    } catch {
+       return `${value.toFixed(0)} ${currency}`;
+    }
+}
 
 export default function ResultCard({ result }: ResultCardProps) {
   const { toast } = useToast();
@@ -71,30 +82,47 @@ export default function ResultCard({ result }: ResultCardProps) {
     const { gross, net, breakdown, isGrossMode, originalAmount, currency } = result;
     const inputType = isGrossMode ? "Gross" : "Net";
     const outputType = isGrossMode ? "Net" : "Gross";
-    const outputValue = isGrossMode ? net : gross;
     
-    const formatCurrencyStyleForClipboard = (val: number, curr: string) => {
-        if (isNaN(val)) val = 0;
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: curr, currencyDisplay: 'code' }).format(val);
-    }
-
-    const textToCopy = `
+    let textToCopy = `
 VN Salary Calculation Result:
 ---------------------------------
-Input Salary (${inputType} ${currency}): ${formatCurrencyStyleForClipboard(originalAmount, currency)}
-Calculated ${outputType} (${currency}): ${formatCurrencyStyleForClipboard(outputValue, currency)}
+Input Salary (${inputType} ${currency}): ${formatCurrencyForClipboard(originalAmount, currency)}
+Calculated ${outputType} (${currency}): ${formatCurrencyForClipboard(isGrossMode ? net : gross, currency)}
 ---------------------------------
-Details (all amounts in VND):
-Gross Salary: ${formatCurrency(breakdown.grossSalaryVND, "VND")} VND
-Net Salary: ${formatCurrency(breakdown.netSalaryVND, "VND")} VND
-Insurance Base: ${formatCurrency(breakdown.insurance.base, "VND")} VND
-  - BHXH (8%): ${formatCurrency(breakdown.insurance.bhxh, "VND")} VND
-  - BHYT (1.5%): ${formatCurrency(breakdown.insurance.bhyt, "VND")} VND
-  - BHTN (1%): ${formatCurrency(breakdown.insurance.bhtn, "VND")} VND
-  - Total Insurance: ${formatCurrency(breakdown.insurance.total, "VND")} VND
-Taxable Income: ${formatCurrency(breakdown.taxableIncome, "VND")} VND
-Personal Income Tax (PIT): ${formatCurrency(breakdown.personalIncomeTax, "VND")} VND
-Total Deductions (Insurance + PIT): ${formatCurrency(breakdown.totalDeductionsFromGross, "VND")} VND
+Details (all amounts in VND unless specified):
+Gross Salary (VND): ${formatCurrency(breakdown.grossSalaryVND, "VND")}
+Net Salary (VND): ${formatCurrency(breakdown.netSalaryVND, "VND")}
+
+Employee's Insurance Contributions (VND):
+  - Base for BHXH, BHYT: ${formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND")}
+  - Base for BHTN: ${formatCurrency(breakdown.insurance.baseBHTN, "VND")}
+  - BHXH (8%): ${formatCurrency(breakdown.insurance.bhxh, "VND")}
+  - BHYT (1.5%): ${formatCurrency(breakdown.insurance.bhyt, "VND")}
+  - BHTN: ${formatCurrency(breakdown.insurance.bhtn, "VND")}
+  - Total Employee Insurance: ${formatCurrency(breakdown.insurance.total, "VND")}
+
+Personal Income Tax (PIT) (VND):
+  - Taxable Income: ${formatCurrency(breakdown.taxableIncome, "VND")}
+  - PIT Amount: ${formatCurrency(breakdown.personalIncomeTax, "VND")}
+`;
+
+    if (breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.length > 0) {
+      textToCopy += "\n  PIT Breakdown by Brackets (VND):\n";
+      breakdown.progressiveTaxDetails.forEach(detail => {
+        textToCopy += `    - ${detail.bracketLabel}: Income ${formatCurrency(detail.incomeInBracket, "VND")}, Tax ${formatCurrency(detail.taxAmountInBracket, "VND")} (${(detail.rate * 100).toFixed(0)}%)\n`;
+      });
+    }
+
+textToCopy += `
+Total Deductions from Gross (Insurance + PIT): ${formatCurrency(breakdown.totalDeductionsFromGross, "VND")}
+---------------------------------
+Employer's Contributions (VND):
+  - BHXH (17.5%): ${formatCurrency(breakdown.employerContributions.bhxh, "VND")}
+  - BHYT (3%): ${formatCurrency(breakdown.employerContributions.bhyt, "VND")}
+  - BHTN: ${formatCurrency(breakdown.employerContributions.bhtn, "VND")}
+  - Total Employer Insurance: ${formatCurrency(breakdown.employerContributions.total, "VND")}
+
+Total Employer Cost (Gross Salary + Employer Insurance) (VND): ${formatCurrency(breakdown.totalEmployerCost, "VND")}
 ---------------------------------
 Calculation based on provided inputs.
     `;
@@ -144,7 +172,7 @@ Calculation based on provided inputs.
     { name: "BHTN", value: breakdown.insurance.bhtn, fill: "hsl(var(--chart-3))" },
     { name: "Thuế TNCN", value: breakdown.personalIncomeTax, fill: "hsl(var(--chart-4))" },
     { name: "Lương thực nhận", value: breakdown.netSalaryVND, fill: "hsl(var(--chart-5))" },
-  ].filter(item => item.value > 0) : []; // Filter out zero/negative values for cleaner chart
+  ].filter(item => item.value > 0) : [];
 
   const chartConfig = {
     "BHXH": { label: "BHXH", color: "hsl(var(--chart-1))" },
@@ -172,6 +200,11 @@ Calculation based on provided inputs.
           <p className="text-4xl font-bold text-primary mt-1">
             {formatCurrency(displayOutputValue, currency)}
           </p>
+           {currency !== "VND" && (
+            <p className="text-xs text-muted-foreground mt-1">
+              (Tương đương {formatCurrency(isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND, "VND")} VND)
+            </p>
+          )}
         </div>
         
         <Separator />
@@ -193,11 +226,15 @@ Calculation based on provided inputs.
         <Separator />
 
         <div>
-            <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Shield size={18} className="mr-2 text-primary" />Các khoản bảo hiểm:</h4>
+            <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Shield size={18} className="mr-2 text-primary" />Các khoản bảo hiểm người lao động đóng:</h4>
             <div className="space-y-1 pl-4 text-sm">
               <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                  <span className="text-muted-foreground">Mức lương đóng BH:</span>
-                  <span className="text-foreground">{formatCurrency(breakdown.insurance.base, "VND")}</span>
+                  <span className="text-muted-foreground">Mức lương đóng BHXH, BHYT:</span>
+                  <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND")}</span>
+              </div>
+              <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                  <span className="text-muted-foreground">Mức lương đóng BHTN:</span>
+                  <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHTN, "VND")}</span>
               </div>
               <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
                   <span className="text-muted-foreground">BHXH (8%):</span>
@@ -208,11 +245,11 @@ Calculation based on provided inputs.
                   <span className="text-foreground">{formatCurrency(breakdown.insurance.bhyt, "VND")}</span>
               </div>
               <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                  <span className="text-muted-foreground">BHTN (1%):</span>
+                  <span className="text-muted-foreground">BHTN:</span>
                   <span className="text-foreground">{formatCurrency(breakdown.insurance.bhtn, "VND")}</span>
               </div>
               <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                  <span className="text-muted-foreground">Tổng bảo hiểm:</span>
+                  <span className="text-muted-foreground">Tổng bảo hiểm NLĐ đóng:</span>
                   <span className="text-foreground">{formatCurrency(breakdown.insurance.total, "VND")}</span>
               </div>
             </div>
@@ -233,13 +270,76 @@ Calculation based on provided inputs.
                 </div>
             </div>
         </div>
+         {breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.length > 0 && breakdown.personalIncomeTax > 0 && (
+          <>
+            <Separator className="my-3" />
+             <div>
+                <h5 className="text-md font-semibold mb-2 text-foreground flex items-center"><ListChecks size={16} className="mr-2 text-primary" /> Chi tiết các bậc thuế TNCN:</h5>
+                <div className="overflow-x-auto text-xs pl-4">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-1 px-1 font-medium text-muted-foreground">Mức chịu thuế</th>
+                        <th className="text-right py-1 px-1 font-medium text-muted-foreground">TN tính thuế</th>
+                        <th className="text-center py-1 px-1 font-medium text-muted-foreground">Thuế suất</th>
+                        <th className="text-right py-1 px-1 font-medium text-muted-foreground">Tiền thuế</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {breakdown.progressiveTaxDetails.map((detail, index) => (
+                        (detail.incomeInBracket > 0 || breakdown.personalIncomeTax === 0 || index === 0 ) && <tr key={index} className="border-b hover:bg-secondary/20 last:border-b-0">
+                          <td className="py-1 px-1 text-muted-foreground">{detail.bracketLabel}</td>
+                          <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.incomeInBracket, "VND")}</td>
+                          <td className="py-1 px-1 text-center text-foreground">{(detail.rate * 100).toFixed(0)}%</td>
+                          <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.taxAmountInBracket, "VND")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+          </>
+        )}
         
         <Separator />
 
         <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
-            <span className="text-lg font-bold text-primary">Tổng khấu trừ (BH + Thuế TNCN):</span>
+            <span className="text-lg font-bold text-primary">Tổng khấu trừ NLĐ (BH + Thuế TNCN):</span>
             <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross, "VND")}</span>
         </div>
+
+        <Separator className="my-6" />
+
+        <div>
+            <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><Briefcase size={20} className="mr-2 text-primary" />Chi phí người sử dụng lao động (VND)</h3>
+            <div className="space-y-1 pl-4 text-sm">
+                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">Lương Gross:</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
+                </div>
+                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">BHXH (17.5%):</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhxh, "VND")}</span>
+                </div>
+                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">BHYT (3%):</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhyt, "VND")}</span>
+                </div>
+                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
+                    <span className="text-muted-foreground">BHTN (NSDLĐ đóng):</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhtn, "VND")}</span>
+                </div>
+                 <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
+                    <span className="text-muted-foreground">Tổng BH NSDLĐ đóng:</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.employerContributions.total, "VND")}</span>
+                </div>
+            </div>
+            <div className="flex justify-between items-center p-3 mt-4 bg-primary/10 rounded-lg">
+                <span className="text-lg font-bold text-primary">Tổng chi phí NSDLĐ:</span>
+                <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalEmployerCost, "VND")}</span>
+            </div>
+        </div>
+
 
         <Separator className="my-6" />
         
@@ -308,5 +408,3 @@ Calculation based on provided inputs.
     </Card>
   );
 }
-
-    
