@@ -1,5 +1,6 @@
+
 import Link from 'next/link';
-import { NotebookPen, Settings, Info, LayoutDashboard } from 'lucide-react'; // Using NotebookPen for app icon
+import { NotebookPen, Settings, Info, History } from 'lucide-react'; // Using NotebookPen for app icon
 import { Button } from '@/components/ui/button';
 
 export default function SiteHeader() {
@@ -18,9 +19,9 @@ export default function SiteHeader() {
             </Link>
           </Button>
           <Button variant="ghost" asChild>
-            <Link href="/dashboard" className="flex items-center gap-1">
-              <LayoutDashboard size={18} />
-              Dashboard
+            <Link href="/history" className="flex items-center gap-1">
+              <History size={18} />
+              History
             </Link>
           </Button>
           <Button variant="ghost" asChild>

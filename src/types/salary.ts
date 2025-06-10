@@ -58,6 +58,19 @@ export interface SalaryResult {
   isGrossMode: boolean;
 }
 
+export interface CalculationHistoryEntry {
+  id: string;
+  timestamp: number;
+  mode: 'GrossToNet' | 'NetToGross';
+  inputSalary: number;
+  inputCurrency: Currency;
+  calculatedGrossVND: number;
+  calculatedNetVND: number;
+  fullInputSnapshot: SalaryInput; // Store the form input for context or re-population
+  fullResultSnapshot: SalaryResult; // Store the full result for detailed view
+}
+
+
 export const REGION_OPTIONS: { value: Region; label: string }[] = [
   { value: 1, label: "Vùng 1" },
   { value: 2, label: "Vùng 2" },
