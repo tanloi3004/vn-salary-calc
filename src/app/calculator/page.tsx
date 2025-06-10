@@ -7,6 +7,10 @@ import type { SalaryInput, SalaryResult } from '@/types/salary';
 import { computeSalary } from '@/lib/salary-calculator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ReactMarkdown from 'react-markdown';
+// @ts-ignore
+import legalBasisContent from '@/content/legal-basis.md';
+
 
 export default function CalculatorPage() {
   const [isGrossMode, setIsGrossMode] = useState<boolean>(true); // true for Gross to Net, false for Net to Gross
@@ -21,14 +25,9 @@ export default function CalculatorPage() {
   const handleModeChange = (newIsGrossMode: boolean) => {
     setIsGrossMode(newIsGrossMode);
     setCalculationResult(null); // Clear previous results when mode changes
-    // Consider if form values should be reset or preserved. For now, resetting with key.
     setFormKey(Date.now()); 
   };
   
-  // Prepare initial values for the form based on the current mode.
-  // This is useful if we want to carry over the 'salaryInput' value when toggling modes,
-  // but for a full form reset triggered by `formKey`, this might not be strictly necessary
-  // unless we want to pre-fill differently based on mode.
   const initialFormValues = calculationResult 
     ? { salaryInput: isGrossMode ? calculationResult.gross : calculationResult.net, currency: calculationResult.currency } 
     : undefined;
@@ -37,13 +36,13 @@ export default function CalculatorPage() {
   return (
     <div className="space-y-8">
       <div className="grid lg:grid-cols-2 gap-8 items-start">
-        <div className="lg:sticky lg:top-8"> {/* Make form sticky on larger screens */}
+        <div className="lg:sticky lg:top-8">
            <SalaryForm
-            key={formKey} // Re-mounts form on mode change to reset its internal state
+            key={formKey}
             onSubmit={handleFormSubmit}
             isGrossMode={isGrossMode}
             onModeChange={handleModeChange}
-            initialValues={initialFormValues} // Pass initial values if needed
+            initialValues={initialFormValues}
           />
         </div>
         <div>
@@ -79,16 +78,7 @@ export default function CalculatorPage() {
               <Card>
                 <CardHeader><CardTitle>Căn cứ pháp lý</CardTitle></CardHeader>
                 <CardContent className="prose prose-sm max-w-none">
-                  <p>Các tính toán dựa trên các văn bản pháp luật hiện hành của Việt Nam, bao gồm (nhưng không giới hạn):</p>
-                  <ul>
-                    <li>Luật Thuế thu nhập cá nhân.</li>
-                    <li>Luật Bảo hiểm xã hội.</li>
-                    <li>Luật Bảo hiểm y tế.</li>
-                    <li>Luật Việc làm (về Bảo hiểm thất nghiệp).</li>
-                    <li>Các Nghị định, Thông tư hướng dẫn liên quan.</li>
-                    <li>Quy định về lương tối thiểu vùng, lương cơ sở.</li>
-                  </ul>
-                  <p><em>Thông tin chỉ mang tính tham khảo và có thể cần cập nhật khi có thay đổi pháp luật.</em></p>
+                  <ReactMarkdown>{legalBasisContent}</ReactMarkdown>
                 </CardContent>
               </Card>
             </TabsContent>
