@@ -6,7 +6,7 @@ import ResultCard from '@/components/result-card';
 import type { SalaryInput, SalaryResult } from '@/types/salary';
 import { computeSalary } from '@/lib/salary-calculator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function CalculatorPage() {
   const [isGrossMode, setIsGrossMode] = useState<boolean>(true); // true for Gross to Net, false for Net to Gross
