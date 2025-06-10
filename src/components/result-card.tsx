@@ -365,19 +365,19 @@ Calculation based on provided inputs.
   const displayOutputValue = isGrossMode ? net : gross;
 
   const chartData = breakdown.grossSalaryVND > 0 ? [
-    { name: "BHXH", value: breakdown.insurance.bhxh, fill: "hsl(var(--chart-1))" },
-    { name: "BHYT", value: breakdown.insurance.bhyt, fill: "hsl(var(--chart-2))" },
-    { name: "BHTN", value: breakdown.insurance.bhtn, fill: "hsl(var(--chart-3))" },
+    { name: "BHXH (NLĐ)", value: breakdown.insurance.bhxh, fill: "hsl(var(--chart-1))" },
+    { name: "BHYT (NLĐ)", value: breakdown.insurance.bhyt, fill: "hsl(var(--chart-2))" },
+    { name: "BHTN (NLĐ)", value: breakdown.insurance.bhtn, fill: "hsl(var(--chart-3))" },
     { name: "Thuế TNCN", value: breakdown.personalIncomeTax, fill: "hsl(var(--chart-4))" },
-    { name: "Lương thực nhận", value: breakdown.netSalaryVND, fill: "hsl(var(--chart-5))" },
+    { name: "Lương thực nhận (Net)", value: breakdown.netSalaryVND, fill: "hsl(var(--chart-5))" },
   ].filter(item => item.value > 0) : [];
 
   const chartConfig = {
-    "BHXH": { label: "BHXH", color: "hsl(var(--chart-1))" },
-    "BHYT": { label: "BHYT", color: "hsl(var(--chart-2))" },
-    "BHTN": { label: "BHTN", color: "hsl(var(--chart-3))" },
+    "BHXH (NLĐ)": { label: "BHXH (NLĐ)", color: "hsl(var(--chart-1))" },
+    "BHYT (NLĐ)": { label: "BHYT (NLĐ)", color: "hsl(var(--chart-2))" },
+    "BHTN (NLĐ)": { label: "BHTN (NLĐ)", color: "hsl(var(--chart-3))" },
     "Thuế TNCN": { label: "Thuế TNCN", color: "hsl(var(--chart-4))" },
-    "Lương thực nhận": { label: "Lương thực nhận", color: "hsl(var(--chart-5))" },
+    "Lương thực nhận (Net)": { label: "Lương thực nhận (Net)", color: "hsl(var(--chart-5))" },
   } satisfies ChartConfig;
 
 
@@ -595,7 +595,17 @@ Calculation based on provided inputs.
                       <Cell key={`cell-${entry.name}`} fill={entry.fill} stroke={"hsl(var(--background))"} strokeWidth={2} />
                     ))}
                   </RechartsPie>
-                  <ChartLegend content={<ChartLegendContent nameKey="name" className="text-xs [&_div]:inline-block [&_div]:truncate [&_div]:max-w-[100px] sm:[&_div]:max-w-[180px]" />} />
+                  <ChartLegend
+                    layout="vertical"
+                    verticalAlign="middle"
+                    align="left"
+                    content={
+                      <ChartLegendContent
+                        nameKey="name"
+                        className="text-xs flex flex-col items-start gap-2"
+                      />
+                    }
+                  />
                 </RechartsPieChart>
               </ChartContainer>
             ) : (
