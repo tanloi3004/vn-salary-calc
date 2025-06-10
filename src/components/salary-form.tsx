@@ -43,10 +43,11 @@ import {
   MapPin,
   Users,
   Globe2,
+  Info,
 } from "lucide-react";
 
 import type { SalaryInput, Currency, InsuranceBasis, TaxCalculationMethod, Region, Nationality } from "@/types/salary";
-import { REGION_OPTIONS, CURRENCY_OPTIONS, NATIONALITY_OPTIONS } from "@/types/salary";
+import { REGION_OPTIONS, CURRENCY_OPTIONS, NATIONALITY_OPTIONS, REGION_MINIMUM_WAGE_VND_LEGAL, BASE_SALARY_VND_LEGAL } from "@/types/salary";
 
 const formSchema = z.object({
   salaryInput: z.coerce.number().min(0, "Thu nhập phải là số dương"),
@@ -97,9 +98,9 @@ const defaultValues: Partial<SalaryFormValues> = {
 
 const formatVNNumberForInput = (value: string | number | undefined): string => {
   if (value === undefined || value === null) return '';
-  const numStr = String(value).replace(/\D/g, ''); 
+  const numStr = String(value).replace(/\D/g, '');
   if (numStr === '') return '';
-  
+
   const num = Number(numStr);
   if (isNaN(num)) return '';
 
@@ -122,6 +123,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
   const watchedCurrency = form.watch("currency");
   const watchedInsuranceBasis = form.watch("insuranceBasis");
   const watchedSalaryInput = form.watch("salaryInput");
+  const watchedRegion = form.watch("region");
   const [salaryInWords, setSalaryInWords] = useState('');
 
   useEffect(() => {
@@ -129,7 +131,6 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     if (typeof numericValue === 'number' && !isNaN(numericValue) && numericValue >= 0) {
       try {
         const words = docso(numericValue);
-        // Capitalize first letter
         const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1);
         setSalaryInWords(capitalizedWords + " đồng");
       } catch (e) {
@@ -164,6 +165,8 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     return "Tỷ giá";
   };
 
+  const currentRegionMinimumWage = watchedRegion ? REGION_MINIMUM_WAGE_VND_LEGAL[watchedRegion as Region] : null;
+
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
@@ -175,17 +178,17 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
-            
+
             <div className="flex items-center space-x-4 p-4 bg-secondary/30 rounded-lg shadow-sm">
               <ArrowRightLeft size={24} className="text-primary" />
               <FormLabel className="text-lg font-semibold">Chế độ tính: {isGrossMode ? "Gross sang Net" : "Net sang Gross"}</FormLabel>
               <Switch
-                checked={!isGrossMode} 
+                checked={!isGrossMode}
                 onCheckedChange={(checked) => onModeChange(!checked)}
                 aria-label="Chuyển chế độ Gross/Net"
               />
             </div>
-            
+
             <Separator />
 
             <div className="grid md:grid-cols-2 gap-6">
@@ -260,7 +263,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 )}
               />
             )}
-            
+
             <Separator />
 
             <FormField
@@ -362,7 +365,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
             />
 
             <Separator />
-            
+
             <div className="grid md:grid-cols-3 gap-6">
                <FormField
                 control={form.control}
@@ -370,7 +373,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex items-center"><MapPin size={16} className="mr-1 text-primary" /> Vùng</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={String(field.value)}>
+                    <Select onValueChange={(value) => field.onChange(parseInt(value) as Region)} defaultValue={String(field.value)}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Chọn vùng" />
@@ -382,7 +385,18 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>Ảnh hưởng mức lương tối thiểu đóng BH.</FormDescription>
+                    {currentRegionMinimumWage && (
+                      <div className="mt-2 space-y-1">
+                        <FormDescription className="flex items-center text-xs">
+                          <Info size={12} className="mr-1 text-muted-foreground" />
+                          Lương tối thiểu {REGION_OPTIONS.find(opt => opt.value === watchedRegion)?.label}: {formatVNNumberForInput(currentRegionMinimumWage)} VND
+                        </FormDescription>
+                        <FormDescription className="flex items-center text-xs">
+                          <Info size={12} className="mr-1 text-muted-foreground" />
+                          Lương cơ sở (chung): {formatVNNumberForInput(BASE_SALARY_VND_LEGAL)} VND
+                        </FormDescription>
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -395,8 +409,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   <FormItem>
                     <FormLabel className="flex items-center"><Users size={16} className="mr-1 text-primary" /> Số người phụ thuộc</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Nhập số người" {...field} 
-                       onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                      <Input type="number" placeholder="Nhập số người" {...field}
+                       onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          field.onChange(isNaN(val) ? 0 : val);
+                        }}
                       />
                     </FormControl>
                      <FormDescription>Số người được giảm trừ gia cảnh.</FormDescription>
@@ -404,7 +421,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="nationality"
@@ -429,7 +446,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 )}
               />
             </div>
-            
+
             <Button type="submit" className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6">
               <Calculator className="mr-2 h-5 w-5" />
               Tính lương
@@ -440,4 +457,3 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     </Card>
   );
 }
-

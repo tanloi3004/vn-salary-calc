@@ -1,3 +1,4 @@
+
 export type Currency = 'VND' | 'USD' | 'JPY';
 export type InsuranceBasis = 'official' | 'custom';
 export type TaxCalculationMethod = 'progressive' | 'flat10';
@@ -23,10 +24,10 @@ export interface SalaryResult {
   breakdown: {
     grossSalaryVND: number;
     netSalaryVND: number;
-    insurance: { 
+    insurance: {
       base: number;
-      bhxh: number; 
-      bhyt: number; 
+      bhxh: number;
+      bhyt: number;
       bhtn: number;
       total: number;
     };
@@ -56,3 +57,14 @@ export const NATIONALITY_OPTIONS: { value: Nationality; label: string }[] = [
   { value: "VN", label: "Việt Nam" },
   { value: "Foreign", label: "Người nước ngoài" },
 ];
+
+// Nghị định 147/2024/NĐ-CP (áp dụng từ 1/7/2024)
+export const REGION_MINIMUM_WAGE_VND_LEGAL: Record<Region, number> = {
+  1: 5220000, // Vùng I
+  2: 4650000, // Vùng II
+  3: 4080000, // Vùng III
+  4: 3650000, // Vùng IV
+};
+
+// Nghị định 73/2023/NĐ-CP (áp dụng từ 1/7/2023)
+export const BASE_SALARY_VND_LEGAL = 2340000;

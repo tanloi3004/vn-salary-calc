@@ -1,21 +1,14 @@
+
 import type { SalaryInput, SalaryResult, Region } from '@/types/salary';
+import { REGION_MINIMUM_WAGE_VND_LEGAL, BASE_SALARY_VND_LEGAL } from '@/types/salary';
 
 // Vietnamese Dong constants
 const PERSONAL_DEDUCTION_VND = 11000000;
 const DEPENDENT_DEDUCTION_VND = 4400000;
 
-const REGION_MINIMUM_WAGE_VND: Record<Region, number> = {
-  1: 4960000, // Effective from 01/07/2024, previously 4680000
-  2: 4410000, // Effective from 01/07/2024, previously 4160000
-  3: 3860000, // Effective from 01/07/2024, previously 3640000
-  4: 3430000, // Effective from 01/07/2024, previously 3250000
-};
-
-const BASE_SALARY_VND = 1800000; // Lương cơ sở, used for max insurance cap
+// Using constants from types/salary.ts
 const MAX_BHXH_BHTN_CAP_MULTIPLIER = 20; // 20 times base salary
-const MAX_BHYT_CAP_MULTIPLIER = 20; // 20 times minimum regional wage (this can vary by interpretation/company policy)
-                                    // Often, companies apply 20 times base salary for BHYT as well for simplicity with BHXH/BHTN.
-                                    // Let's use 20 * base_salary for BHYT cap as well for consistency here.
+const MAX_BHYT_CAP_MULTIPLIER = 20; // 20 times base salary (aligning with BHXH/BHTN for simplicity)
 
 const BHXH_RATE_EMPLOYEE = 0.08; // 8%
 const BHYT_RATE_EMPLOYEE = 0.015; // 1.5%
@@ -57,12 +50,9 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
   if (input.insuranceBasis === 'custom' && typeof input.insuranceCustom === 'number') {
     insuranceBaseVND = input.insuranceCustom;
   }
-  
-  // Apply caps to insurance base
-  // Minimum is regional minimum wage
-  const minInsuranceBase = REGION_MINIMUM_WAGE_VND[input.region];
-  // Max for BHXH, BHTN, BHYT is 20 * base salary (lương cơ sở)
-  const maxInsuranceCap = MAX_BHXH_BHTN_CAP_MULTIPLIER * BASE_SALARY_VND;
+
+  const minInsuranceBase = REGION_MINIMUM_WAGE_VND_LEGAL[input.region];
+  const maxInsuranceCap = MAX_BHXH_BHTN_CAP_MULTIPLIER * BASE_SALARY_VND_LEGAL;
 
   insuranceBaseVND = Math.max(minInsuranceBase, insuranceBaseVND);
   insuranceBaseVND = Math.min(maxInsuranceCap, insuranceBaseVND);
@@ -78,19 +68,11 @@ function calculateNetFromGross(grossSalaryVND: number, input: SalaryInput): Omit
 
   let personalIncomeTax = 0;
   if (input.taxCalculationMethod === 'flat10') {
-    // Flat 10% is usually on gross income for specific contracts (e.g., income < 2M/month or non-labor).
-    // For salary, this is a simplification. True "flat 10%" is for non-residents on income < certain thresholds, or specific cases.
-    // Assuming it's 10% of (Gross - Insurance) if this method is chosen for simplicity.
-    personalIncomeTax = Math.max(0, incomeBeforeTax * 0.10); 
-  } else { // Progressive
+    personalIncomeTax = Math.max(0, incomeBeforeTax * 0.10);
+  } else {
     if (input.nationality === 'Foreign') {
-      // This is a major simplification. Foreigners can be tax residents or non-residents.
-      // Tax residents are taxed similarly to Vietnamese (progressive on worldwide income).
-      // Non-residents are taxed at a flat 20% on Vietnam-sourced income.
-      // Assuming 'Foreign' implies non-resident for this simplified logic when 'progressive' is chosen.
-      // Or, if they are tax resident, they use the same progressive scale.
-      // Let's assume they are tax resident and use progressive for now.
-      // If specific non-resident rules should apply, a separate option or logic would be needed.
+      // Assuming tax-resident foreigner using progressive tax for simplicity
+      // A more complex app would distinguish resident/non-resident status for foreigners
       personalIncomeTax = calculateProgressiveTax(taxableIncome);
     } else { // Vietnamese
       personalIncomeTax = calculateProgressiveTax(taxableIncome);
@@ -133,20 +115,18 @@ export function computeSalary(input: SalaryInput): SalaryResult {
     };
   } else { // Calculate Gross from Net
     const targetNetVND = salaryInVND;
-    let estimatedGrossVND = targetNetVND; // Start with net as a first guess, or targetNet / (1 - estimated_tax_insurance_rate)
-    
-    // Heuristic: if net is high, gross must be significantly higher.
+    let estimatedGrossVND = targetNetVND;
+
     if (targetNetVND > PERSONAL_DEDUCTION_VND) {
-        estimatedGrossVND = targetNetVND / (1 - (BHXH_RATE_EMPLOYEE + BHYT_RATE_EMPLOYEE + BHTN_RATE_EMPLOYEE + 0.15)); // Avg 15% PIT
+        estimatedGrossVND = targetNetVND / (1 - (BHXH_RATE_EMPLOYEE + BHYT_RATE_EMPLOYEE + BHTN_RATE_EMPLOYEE + 0.15));
     } else {
         estimatedGrossVND = targetNetVND / (1 - (BHXH_RATE_EMPLOYEE + BHYT_RATE_EMPLOYEE + BHTN_RATE_EMPLOYEE));
     }
     estimatedGrossVND = Math.max(targetNetVND, estimatedGrossVND);
 
-
     let iteration = 0;
     const MAX_ITERATIONS = 50;
-    const TOLERANCE_VND = 100; // Stop if calculated net is within 100 VND of target net
+    const TOLERANCE_VND = 100;
 
     let lastResult: Omit<SalaryResult, 'currency' | 'originalAmount' | 'isGrossMode'> | null = null;
 
@@ -156,39 +136,26 @@ export function computeSalary(input: SalaryInput): SalaryResult {
       const calculatedNetVND = currentCalc.net;
 
       if (Math.abs(calculatedNetVND - targetNetVND) <= TOLERANCE_VND) {
-        break; 
+        break;
       }
+      
+      const adjustmentFactor = targetNetVND / calculatedNetVND;
+      estimatedGrossVND = estimatedGrossVND * adjustmentFactor;
 
-      // Adjust estimatedGrossVND
-      // This is a simple adjustment. A more sophisticated approach (e.g., Newton's method) could be used.
-      // The adjustment factor should aim to correct the error.
-      // Gross = Net + PIT(Gross) + Insurance(Gross)
-      // If calculatedNet < targetNet, need to increase Gross.
-      // If calculatedNet > targetNet, need to decrease Gross.
-      // The amount of adjustment is tricky. Let's try a proportional adjustment based on the difference.
-      // The effective "tax and insurance rate" can be roughly (Gross - Net) / Gross.
-      // Let current_total_deductions = estimatedGrossVND - calculatedNetVND
-      // If calculatedNetVND is off by diff = targetNetVND - calculatedNetVND
-      // We need to change gross by approx diff / (1 - marginal_tax_and_insurance_rate)
-      // For simplicity: estimatedGrossVND = estimatedGrossVND + (targetNetVND - calculatedNetVND)
-      // This might oscillate or converge slowly. A better way:
-      estimatedGrossVND = estimatedGrossVND * (targetNetVND / calculatedNetVND);
-      if (calculatedNetVND === 0 && targetNetVND > 0) { // Avoid division by zero if initial guess is too low
-          estimatedGrossVND = targetNetVND * 2; // Double the guess
+      if (calculatedNetVND === 0 && targetNetVND > 0) {
+          estimatedGrossVND = targetNetVND * 2;
       }
-      estimatedGrossVND = Math.max(targetNetVND, estimatedGrossVND); // Gross must be at least Net
+      estimatedGrossVND = Math.max(targetNetVND, estimatedGrossVND);
     }
-    
-    if (!lastResult) { // Should not happen if loop runs at least once
+
+    if (!lastResult) {
         lastResult = calculateNetFromGross(estimatedGrossVND, input);
     }
 
     return {
       ...lastResult,
-      // Ensure the returned net is the target net if converged, or the calculated one.
-      // For consistency, always return what calculateNetFromGross produced for the final gross.
-      net: lastResult.net, 
-      gross: lastResult.gross, // This is the iterated gross
+      net: lastResult.net,
+      gross: lastResult.gross,
       currency: input.currency,
       originalAmount: input.salaryInput,
       isGrossMode: false,
