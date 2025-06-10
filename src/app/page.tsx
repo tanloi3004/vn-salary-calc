@@ -14,6 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Link2 } from "lucide-react";
 
 
 export default function HomePage() {
@@ -93,7 +94,7 @@ export default function HomePage() {
                               <ul>
                                 <li><strong>Luật số 04/2007/QH12</strong> (sửa đổi, bổ sung bởi <strong>Luật số 26/2012/QH13</strong> và <strong>Luật số 71/2014/QH13</strong>).</li>
                                 <li>Quy định về thu nhập chịu thuế, thu nhập miễn thuế, giảm trừ gia cảnh, và cách tính thuế thu nhập cá nhân (TNCN).</li>
-                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Luat-thue-thu-nhap-ca-nhan-2007-04-2007-QH12-50179.aspx" target="_blank" rel="noopener noreferrer">Luật Thuế TNCN - Thư viện Pháp luật</a>.</li>
+                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Thue-Phi-Le-Phi/Luat-thue-thu-nhap-ca-nhan-2007-04-2007-QH12-50179.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Luật Thuế TNCN - Thư viện Pháp luật</a>.</li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
@@ -103,7 +104,7 @@ export default function HomePage() {
                               <ul>
                                 <li><strong>Luật số 58/2014/QH13</strong>.</li>
                                 <li>Quy định mức đóng BHXH bắt buộc (8% từ người lao động, 17.5% từ người sử dụng lao động trên tiền lương làm căn cứ đóng BHXH).</li>
-                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Bao-hiem/Luat-bao-hiem-xa-hoi-2014-58-2014-QH13-259328.aspx" target="_blank" rel="noopener noreferrer">Luật BHXH 2014 - Thư viện Pháp luật</a>.</li>
+                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Bao-hiem/Luat-bao-hiem-xa-hoi-2014-58-2014-QH13-259328.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Luật BHXH 2014 - Thư viện Pháp luật</a>.</li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
@@ -113,7 +114,7 @@ export default function HomePage() {
                               <ul>
                                 <li><strong>Luật số 25/2008/QH12</strong> (sửa đổi, bổ sung bởi <strong>Luật số 46/2014/QH13</strong>).</li>
                                 <li>Quy định mức đóng BHYT bắt buộc (1.5% từ người lao động, 3% từ người sử dụng lao động).</li>
-                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Bao-hiem/Luat-bao-hiem-y-te-2008-25-2008-QH12-66947.aspx" target="_blank" rel="noopener noreferrer">Luật BHYT - Thư viện Pháp luật</a>.</li>
+                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Bao-hiem/Luat-bao-hiem-y-te-2008-25-2008-QH12-66947.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Luật BHYT - Thư viện Pháp luật</a>.</li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
@@ -123,7 +124,7 @@ export default function HomePage() {
                                <ul>
                                 <li><strong>Luật số 38/2013/QH13</strong>.</li>
                                 <li>Quy định mức đóng BHTN (1% từ người lao động, 1% từ người sử dụng lao động).</li>
-                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Luat-viec-lam-2013-38-2013-QH13-208163.aspx" target="_blank" rel="noopener noreferrer">Luật Việc làm - Thư viện Pháp luật</a>.</li>
+                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Luat-viec-lam-2013-38-2013-QH13-208163.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Luật Việc làm - Thư viện Pháp luật</a>.</li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
@@ -139,7 +140,7 @@ export default function HomePage() {
                                     <li>Vùng IV: 3,650,000 VNĐ/tháng.</li>
                                   </ul>
                                 </li>
-                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Nghi-dinh-147-2024-ND-CP-luong-toi-thieu-doi-voi-nguoi-lao-dong-lam-viec-theo-hop-dong-lao-dong-606053.aspx" target="_blank" rel="noopener noreferrer">Nghị định 147/2024/NĐ-CP - Thư viện Pháp luật</a>.</li>
+                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Nghi-dinh-147-2024-ND-CP-luong-toi-thieu-doi-voi-nguoi-lao-dong-lam-viec-theo-hop-dong-lao-dong-606053.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Nghị định 147/2024/NĐ-CP - Thư viện Pháp luật</a>.</li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
@@ -148,7 +149,7 @@ export default function HomePage() {
                             <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
                               <ul>
                                 <li><strong>Nghị định 73/2023/NĐ-CP</strong> (hoặc văn bản mới nhất thay thế nếu có cập nhật sau ngày 10/6/2025) quy định mức lương cơ sở là <strong>2,340,000 VNĐ/tháng</strong> (áp dụng từ 1/7/2023 cho khu vực công).</li>
-                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Nghi-dinh-73-2023-ND-CP-muc-luong-co-so-doi-voi-can-bo-cong-chuc-vien-chuc-569278.aspx" target="_blank" rel="noopener noreferrer">Nghị định 73/2023/NĐ-CP - Thư viện Pháp luật</a>.</li>
+                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Nghi-dinh-73-2023-ND-CP-muc-luong-co-so-doi-voi-can-bo-cong-chuc-vien-chuc-569278.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Nghị định 73/2023/NĐ-CP - Thư viện Pháp luật</a>.</li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
@@ -158,7 +159,7 @@ export default function HomePage() {
                               <ul>
                                 <li><strong>Nghị định 38/2019/NĐ-CP</strong>: Quy định mức lương cơ sở và chế độ BHXH.</li>
                                 <li><strong>Thông tư 08/2013/TT-BNV</strong> và <strong>Thông tư 03/2021/TT-BNV</strong>: Hướng dẫn thực hiện chế độ lương, phụ cấp.</li>
-                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Thong-tu-08-2013-TT-BNV-huong-dan-thuc-hien-che-do-luong-211335.aspx" target="_blank" rel="noopener noreferrer">Thông tư 08/2013/TT-BNV</a>, <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Thong-tu-03-2021-TT-BNV-huong-dan-thuc-hien-che-do-luong-469408.aspx" target="_blank" rel="noopener noreferrer">Thông tư 03/2021/TT-BNV</a>.</li>
+                                <li><strong>Nguồn tham khảo</strong>: <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Thong-tu-08-2013-TT-BNV-huong-dan-thuc-hien-che-do-luong-211335.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Thông tư 08/2013/TT-BNV</a>, <a href="https://thuvienphapluat.vn/van-ban/Lao-dong-Tien-luong/Thong-tu-03-2021-TT-BNV-huong-dan-thuc-hien-che-do-luong-469408.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 underline inline-flex items-center"><Link2 size={14} className="mr-1" />Thông tư 03/2021/TT-BNV</a>.</li>
                               </ul>
                             </AccordionContent>
                           </AccordionItem>
@@ -297,5 +298,4 @@ export default function HomePage() {
     </div>
   );
 }
-
     
