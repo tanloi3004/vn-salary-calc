@@ -41,9 +41,9 @@ const formatCurrencySimple = (value: number | undefined, currency: string = "VND
 };
 
 
-export default function HistoryPage({ params }: HistoryPageProps) { // Changed params destructuring
-  const unwrappedParams = use(params as any); // Use React.use
-  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+export default function HistoryPage({ params }: HistoryPageProps) { 
+  const unwrappedParams = use(params as any); 
+  const locale = unwrappedParams.locale; 
 
   const messagesAll = locale === 'vi' ? viMessagesJson : enMessagesJson;
   const messages = messagesAll.historyPage;
@@ -219,7 +219,7 @@ export default function HistoryPage({ params }: HistoryPageProps) { // Changed p
             <div className="flex-grow overflow-y-auto pr-2">
               <ResultCard result={selectedResult} locale={locale} messages={resultCardMessages} />
             </div>
-            <DialogFooter className="sm:justify-end mt-4 sticky bottom-0 bg-background py-3 border-t">
+            <DialogFooter className="sm:justify-end bg-background py-3 border-t">
                 <DialogClose asChild>
                     <Button type="button" variant="secondary">
                     {messages.closeButton}
