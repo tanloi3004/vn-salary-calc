@@ -61,7 +61,7 @@
     "netOutputLabel": "NET SALARY RECEIVED",
     "grossOutputLabel": "GROSS SALARY REQUIRED",
     "equivalentToVND": "(Equivalent to {amount} VND)",
-    "equivalentToUSD": "(Equivalent to {amount} USD)",
+    "equivalentToUSD": "(Equivalent to {amount})",
     "detailsVND": "Details (VND)",
     "grossSalary": "Gross Salary:",
     "netSalary": "Net Salary (take-home):",

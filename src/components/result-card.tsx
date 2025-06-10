@@ -423,7 +423,9 @@ Calculation based on provided inputs.
           {isGrossMode ? messages.resultTitleNet : messages.resultTitleGross}
         </CardTitle>
         <CardDescription>
-          {messages.fromInputSalary.replace("{type}", displayInputType)} {formatCurrency(originalAmount, currency, locale)} {currency !== "VND" ? currency : ""}
+          {messages.fromInputSalary.replace("{type}", displayInputType)}{" "}
+          {formatCurrency(originalAmount, currency, locale)}
+          {currency === 'VND' ? ' VND' : ''}
           <br />
           {messages.dependentsLabelResult.replace("{count}", String(dependents))}
         </CardDescription>

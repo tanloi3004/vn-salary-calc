@@ -61,7 +61,7 @@
     "netOutputLabel": "LƯƠNG NET NHẬN ĐƯỢC",
     "grossOutputLabel": "LƯƠNG GROSS CẦN CÓ",
     "equivalentToVND": "(Tương đương {amount} VND)",
-    "equivalentToUSD": "(Tương đương {amount} USD)",
+    "equivalentToUSD": "(Tương đương {amount})",
     "detailsVND": "Chi tiết (VND)",
     "grossSalary": "Lương Gross:",
     "netSalary": "Lương Net (thực nhận):",
