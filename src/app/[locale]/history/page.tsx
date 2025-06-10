@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react'; // Added use
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -41,7 +41,10 @@ const formatCurrencySimple = (value: number | undefined, currency: string = "VND
 };
 
 
-export default function HistoryPage({ params: { locale } }: HistoryPageProps) {
+export default function HistoryPage({ params }: HistoryPageProps) { // Changed params destructuring
+  const unwrappedParams = use(params as any); // Use React.use
+  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+
   const messagesAll = locale === 'vi' ? viMessagesJson : enMessagesJson;
   const messages = messagesAll.historyPage;
   const resultCardMessages = messagesAll.resultCard;

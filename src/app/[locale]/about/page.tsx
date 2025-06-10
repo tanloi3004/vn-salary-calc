@@ -1,4 +1,5 @@
 
+import { use } from 'react'; // Added use
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Info } from "lucide-react";
 
@@ -11,7 +12,10 @@ interface AboutPageProps {
   };
 }
 
-export default function AboutPage({ params: { locale } }: AboutPageProps) {
+export default function AboutPage({ params }: AboutPageProps) { // Changed params destructuring
+  const unwrappedParams = use(params); // Use React.use
+  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+
   const messages = locale === 'vi' ? viMessages.aboutPage : enMessages.aboutPage;
 
   return (

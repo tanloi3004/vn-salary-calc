@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, use } from 'react'; // Added use
 import SalaryForm from '@/components/salary-form';
 import ResultCard from '@/components/result-card';
 import type { SalaryInput, SalaryResult, CalculationHistoryEntry } from '@/types/salary';
@@ -39,7 +39,10 @@ const getMsg = (messages: any, key: string, defaultText = '') => {
 };
 
 
-export default function HomePage({ params: { locale } }: HomePageProps) {
+export default function HomePage({ params }: HomePageProps) { // Changed params destructuring
+  const unwrappedParams = use(params as any); // Use React.use
+  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+
   const messages = locale === 'vi' ? viMessages : enMessages;
   const salaryFormMessages = messages.salaryForm;
   const resultCardMessages = messages.resultCard;

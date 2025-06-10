@@ -1,7 +1,6 @@
 
 import type { Metadata } from 'next';
-// import '../globals.css'; // Moved to root src/app/layout.tsx
-// import { Toaster } from "@/components/ui/toaster"; // Moved to root src/app/layout.tsx
+import { use } from 'react'; // Added use
 import SiteHeader from '@/components/site-header';
 
 import viMessages from '@/locales/vi.json';
@@ -28,8 +27,11 @@ interface LocaleLayoutProps {
 
 export default function LocaleLayout({
   children,
-  params: { locale }
+  params // Changed params destructuring
 }: LocaleLayoutProps) {
+  const unwrappedParams = use(params); // Use React.use
+  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+
   const messages = locale === 'vi' ? viMessages : enMessages;
 
   // This component no longer renders <html>, <head>, or <body>.
