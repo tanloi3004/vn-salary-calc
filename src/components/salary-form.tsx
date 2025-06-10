@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as z from "zod";
@@ -91,6 +92,24 @@ const defaultValues: Partial<SalaryFormValues> = {
   nationality: "VN",
 };
 
+// Helper function to format number to VN style for input display
+const formatVNNumberForInput = (value: string | number | undefined): string => {
+  if (value === undefined || value === null) return '';
+  const numStr = String(value).replace(/\D/g, ''); // Get only digits
+  if (numStr === '') return '';
+  
+  const num = Number(numStr);
+  if (isNaN(num)) return '';
+
+  return new Intl.NumberFormat('vi-VN').format(num);
+};
+
+// Helper function to clean string to numeric string (digits only)
+const cleanToNumericString = (value: string | undefined): string => {
+  if (value === undefined || value === null) return '';
+  return String(value).replace(/\D/g, '');
+};
+
 
 export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initialValues }: SalaryFormProps) {
   const { toast } = useToast();
@@ -107,8 +126,9 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
       ...values,
       isGrossMode,
       // Ensure exchangeRate and insuranceCustom are numbers or undefined correctly
-      exchangeRate: values.currency === 'VND' ? undefined : Number(values.exchangeRate) || undefined,
-      insuranceCustom: values.insuranceBasis === 'custom' ? Number(values.insuranceCustom) || undefined : undefined,
+      // Zod coercion already handles conversion from string (from input) to number
+      exchangeRate: values.currency === 'VND' ? undefined : values.exchangeRate,
+      insuranceCustom: values.insuranceBasis === 'custom' ? values.insuranceCustom : undefined,
       region: values.region as Region,
       nationality: values.nationality as Nationality,
     };
@@ -157,7 +177,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   <FormItem>
                     <FormLabel className="flex items-center"><DollarSign size={16} className="mr-1 text-primary" /> Thu nhập ({isGrossMode ? "Gross" : "Net"})</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Nhập số tiền" {...field} />
+                      <Input
+                        type="text"
+                        placeholder="Nhập số tiền"
+                        {...field}
+                        value={formatVNNumberForInput(field.value)}
+                        onChange={(e) => {
+                          const numericString = cleanToNumericString(e.target.value);
+                          field.onChange(numericString); // Zod coerce will handle conversion to number
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -195,7 +224,17 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   <FormItem>
                     <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {getExchangeRateLabel(watchedCurrency)}</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Nhập tỷ giá" {...field} value={field.value ?? ''} />
+                      <Input
+                        type="text"
+                        placeholder="Nhập tỷ giá"
+                        {...field}
+                        value={formatVNNumberForInput(field.value)}
+                        onChange={(e) => {
+                          const numericString = cleanToNumericString(e.target.value);
+                          // For optional fields, pass undefined if empty, otherwise the numeric string
+                          field.onChange(numericString === '' ? undefined : numericString);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -248,7 +287,17 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   <FormItem>
                     <FormLabel>Mức lương cơ sở đóng bảo hiểm (VND)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Nhập mức đóng BH tùy chọn" {...field} value={field.value ?? ''} />
+                      <Input
+                        type="text"
+                        placeholder="Nhập mức đóng BH tùy chọn"
+                        {...field}
+                        value={formatVNNumberForInput(field.value)}
+                        onChange={(e) => {
+                          const numericString = cleanToNumericString(e.target.value);
+                           // For optional fields, pass undefined if empty
+                          field.onChange(numericString === '' ? undefined : numericString);
+                        }}
+                      />
                     </FormControl>
                     <FormDescription>Đây là mức lương làm cơ sở để tính các khoản BHXH, BHYT, BHTN.</FormDescription>
                     <FormMessage />
