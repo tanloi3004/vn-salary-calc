@@ -6,6 +6,10 @@
     "history": "Lịch sử",
     "about": "Giới thiệu"
   },
+  "seo": {
+    "description": "VN Salary Calc - Công cụ tính lương Gross sang Net và Net sang Gross chính xác, nhanh chóng tại Việt Nam. Cập nhật theo luật thuế và bảo hiểm mới nhất. Hỗ trợ tính lương USD, JPY.",
+    "keywords": ["tính lương gross net", "công cụ tính lương", "lương net", "lương gross", "thuế thu nhập cá nhân", "bảo hiểm xã hội", "tính lương online", "vn salary calculator", "lương việt nam", "gross to net vietnam", "đổi gross sang net"]
+  },
   "salaryForm": {
     "title": "Thông tin tính lương",
     "description": "Nhập các thông tin cần thiết để tính lương Gross ↔ Net.",
@@ -294,5 +298,3 @@
     "section3_item1": "Các mức lương tối thiểu vùng và lương cơ sở có thể được điều chỉnh hàng năm. Bạn nên kiểm tra văn bản pháp luật mới nhất (thông qua Thư viện Pháp luật hoặc Cổng thông tin Chính phủ) để đảm bảo tính chính xác."
   }
 }
-
-    

@@ -6,6 +6,10 @@
     "history": "History",
     "about": "About"
   },
+  "seo": {
+    "description": "VN Salary Calc - Accurate Gross to Net and Net to Gross salary calculator for Vietnam. Updated with the latest tax and insurance laws. Supports USD, JPY calculations.",
+    "keywords": ["gross net salary calculator", "salary calculator vietnam", "net salary", "gross salary", "personal income tax vietnam", "social insurance vietnam", "online salary calculator", "vietnam payroll"]
+  },
   "salaryForm": {
     "title": "Salary Calculation Information",
     "description": "Enter the necessary information to calculate Gross ↔ Net salary.",
@@ -294,5 +298,3 @@
     "section3_item1": "Regional minimum wages and base salary may be adjusted annually. You should check the latest legal documents (via the Legal Library or Government Portal) to ensure accuracy."
   }
 }
-
-    

@@ -1,6 +1,6 @@
 
 import type { Metadata } from 'next';
-import { use } from 'react'; // Added use
+import { use } from 'react';
 import SiteHeader from '@/components/site-header';
 
 import viMessages from '@/locales/vi.json';
@@ -12,10 +12,82 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params: { locale } }: { params: { locale: string } }): Promise<Metadata> {
   const messages = locale === 'vi' ? viMessages : enMessages;
-  return {
-    title: messages.siteHeader.title,
-    description: 'Vietnam Gross to Net Salary Calculator', // This could also be translated
-  };
+  const siteTitle = messages.siteHeader.title;
+  const placeholderDomain = 'https://your-app-domain.com'; // Replace with your actual domain
+
+  if (locale === 'vi') {
+    const viSeoMessages = viMessages.seo;
+    return {
+      title: siteTitle,
+      description: viSeoMessages.description,
+      keywords: viSeoMessages.keywords,
+      openGraph: {
+        title: siteTitle,
+        description: viSeoMessages.description,
+        type: 'website',
+        locale: 'vi_VN',
+        url: `${placeholderDomain}/vi`,
+        siteName: siteTitle,
+        images: [
+          {
+            url: 'https://placehold.co/1200x630.png', // data-ai-hint: "salary calculator finance"
+            width: 1200,
+            height: 630,
+            alt: `${siteTitle} - ${viSeoMessages.description}`,
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: siteTitle,
+        description: viSeoMessages.description,
+        images: ['https://placehold.co/1200x630.png'], // data-ai-hint: "salary calculator finance"
+      },
+      alternates: {
+        canonical: `${placeholderDomain}/${locale}`,
+        languages: {
+          'vi-VN': `${placeholderDomain}/vi`,
+          'en-US': `${placeholderDomain}/en`,
+        },
+      },
+    };
+  } else { // For 'en' or other locales
+    const enSeoMessages = enMessages.seo;
+    return {
+      title: siteTitle,
+      description: enSeoMessages.description,
+      keywords: enSeoMessages.keywords,
+      openGraph: {
+        title: siteTitle,
+        description: enSeoMessages.description,
+        type: 'website',
+        locale: 'en_US',
+        url: `${placeholderDomain}/${locale}`,
+        siteName: siteTitle,
+         images: [
+          {
+            url: 'https://placehold.co/1200x630.png', // data-ai-hint: "salary calculator finance"
+            width: 1200,
+            height: 630,
+            alt: `${siteTitle} - ${enSeoMessages.description}`,
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: siteTitle,
+        description: enSeoMessages.description,
+        images: ['https://placehold.co/1200x630.png'], // data-ai-hint: "salary calculator finance"
+      },
+      alternates: {
+        canonical: `${placeholderDomain}/${locale}`,
+        languages: {
+          'vi-VN': `${placeholderDomain}/vi`,
+          'en-US': `${placeholderDomain}/en`,
+        },
+      },
+    };
+  }
 }
 
 interface LocaleLayoutProps {
@@ -27,22 +99,19 @@ interface LocaleLayoutProps {
 
 export default function LocaleLayout({
   children,
-  params // Changed params destructuring
+  params
 }: LocaleLayoutProps) {
-  const unwrappedParams = use(params); // Use React.use
-  const locale = unwrappedParams.locale; // Get locale from unwrapped params
+  const unwrappedParams = use(params);
+  const locale = unwrappedParams.locale;
 
   const messages = locale === 'vi' ? viMessages : enMessages;
 
-  // This component no longer renders <html>, <head>, or <body>.
-  // It provides the content that goes *inside* the root layout's <body>.
   return (
     <>
       <SiteHeader locale={locale} messages={messages.siteHeader} />
       <main className="flex-grow container mx-auto px-4 py-8">
         {children}
       </main>
-      {/* Toaster is now in the root layout src/app/layout.tsx */}
     </>
   );
 }
