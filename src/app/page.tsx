@@ -87,7 +87,7 @@ export default function HomePage() {
                       <AccordionTrigger className="text-xl font-semibold hover:no-underline">1. Căn cứ pháp lý để tính lương</AccordionTrigger>
                       <AccordionContent className="pt-2">
                         <p className="prose prose-sm max-w-none mb-2">Dưới đây là các văn bản pháp luật liên quan đến việc tính lương, bao gồm thuế thu nhập cá nhân, bảo hiểm xã hội, bảo hiểm y tế, bảo hiểm thất nghiệp, lương tối thiểu vùng và lương cơ sở:</p>
-                        <Accordion type="multiple" collapsible className="w-full">
+                        <Accordion type="multiple" className="w-full">
                           <AccordionItem value="law-tncn">
                             <AccordionTrigger>Luật Thuế thu nhập cá nhân</AccordionTrigger>
                             <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
@@ -171,7 +171,7 @@ export default function HomePage() {
                       <AccordionTrigger className="text-xl font-semibold hover:no-underline">2. Cách tính lương theo quy định pháp luật</AccordionTrigger>
                       <AccordionContent className="pt-2">
                         <p className="prose prose-sm max-w-none mb-2">Dựa trên các văn bản pháp lý trên, công thức tính lương cơ bản bao gồm các yếu tố sau:</p>
-                        <Accordion type="multiple" collapsible className="w-full">
+                        <Accordion type="multiple" className="w-full">
                           <AccordionItem value="calc-gross-net">
                             <AccordionTrigger>2.1. Lương gross và lương net</AccordionTrigger>
                             <AccordionContent className="prose prose-sm max-w-none pt-1 pl-4">
