@@ -5,6 +5,9 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { Control } from "react-hook-form";
+import { useState, useEffect } from "react";
+import { docso } from 'docso';
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -92,10 +95,9 @@ const defaultValues: Partial<SalaryFormValues> = {
   nationality: "VN",
 };
 
-// Helper function to format number to VN style for input display
 const formatVNNumberForInput = (value: string | number | undefined): string => {
   if (value === undefined || value === null) return '';
-  const numStr = String(value).replace(/\D/g, ''); // Get only digits
+  const numStr = String(value).replace(/\D/g, ''); 
   if (numStr === '') return '';
   
   const num = Number(numStr);
@@ -104,7 +106,6 @@ const formatVNNumberForInput = (value: string | number | undefined): string => {
   return new Intl.NumberFormat('vi-VN').format(num);
 };
 
-// Helper function to clean string to numeric string (digits only)
 const cleanToNumericString = (value: string | undefined): string => {
   if (value === undefined || value === null) return '';
   return String(value).replace(/\D/g, '');
@@ -120,13 +121,31 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
 
   const watchedCurrency = form.watch("currency");
   const watchedInsuranceBasis = form.watch("insuranceBasis");
+  const watchedSalaryInput = form.watch("salaryInput");
+  const [salaryInWords, setSalaryInWords] = useState('');
+
+  useEffect(() => {
+    const numericValue = form.getValues("salaryInput");
+    if (typeof numericValue === 'number' && !isNaN(numericValue) && numericValue >= 0) {
+      try {
+        const words = docso(numericValue);
+        // Capitalize first letter
+        const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1);
+        setSalaryInWords(capitalizedWords + " đồng");
+      } catch (e) {
+        console.error("Error converting number to words:", e);
+        setSalaryInWords('');
+      }
+    } else {
+      setSalaryInWords('');
+    }
+  }, [watchedSalaryInput, form]);
+
 
   function handleFormSubmit(values: SalaryFormValues) {
     const salaryData: SalaryInput = {
       ...values,
       isGrossMode,
-      // Ensure exchangeRate and insuranceCustom are numbers or undefined correctly
-      // Zod coercion already handles conversion from string (from input) to number
       exchangeRate: values.currency === 'VND' ? undefined : values.exchangeRate,
       insuranceCustom: values.insuranceBasis === 'custom' ? values.insuranceCustom : undefined,
       region: values.region as Region,
@@ -161,7 +180,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
               <ArrowRightLeft size={24} className="text-primary" />
               <FormLabel className="text-lg font-semibold">Chế độ tính: {isGrossMode ? "Gross sang Net" : "Net sang Gross"}</FormLabel>
               <Switch
-                checked={!isGrossMode} // if checked, it's Net to Gross (isGrossMode = false)
+                checked={!isGrossMode} 
                 onCheckedChange={(checked) => onModeChange(!checked)}
                 aria-label="Chuyển chế độ Gross/Net"
               />
@@ -184,10 +203,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          field.onChange(numericString); // Zod coerce will handle conversion to number
+                          field.onChange(numericString === '' ? undefined : numericString);
                         }}
                       />
                     </FormControl>
+                    {salaryInWords && <FormDescription className="text-primary font-medium italic">{salaryInWords}</FormDescription>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -231,7 +251,6 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          // For optional fields, pass undefined if empty, otherwise the numeric string
                           field.onChange(numericString === '' ? undefined : numericString);
                         }}
                       />
@@ -294,7 +313,6 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                           // For optional fields, pass undefined if empty
                           field.onChange(numericString === '' ? undefined : numericString);
                         }}
                       />
@@ -377,7 +395,9 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   <FormItem>
                     <FormLabel className="flex items-center"><Users size={16} className="mr-1 text-primary" /> Số người phụ thuộc</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Nhập số người" {...field} />
+                      <Input type="number" placeholder="Nhập số người" {...field} 
+                       onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                      />
                     </FormControl>
                      <FormDescription>Số người được giảm trừ gia cảnh.</FormDescription>
                     <FormMessage />
@@ -420,3 +440,4 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     </Card>
   );
 }
+
