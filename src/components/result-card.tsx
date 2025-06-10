@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent, PieChart as PieChartIcon, Briefcase, ListChecks, FileSpreadsheet, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { SalaryResult, ProgressiveTaxDetail } from "@/types/salary";
+import type { SalaryResult } from "@/types/salary";
 import { useState, useEffect, useRef } from "react";
 
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-
 
 import {
   ChartContainer,
@@ -24,47 +23,61 @@ import {
 } from "@/components/ui/chart";
 import { PieChart as RechartsPieChart, Pie as RechartsPie, Cell, Tooltip as RechartsTooltip } from "recharts";
 
-
 interface ResultCardProps {
   result: SalaryResult | null;
+  locale: string;
+  messages: any; // Type for resultCard messages
 }
 
-const formatCurrency = (value: number | undefined, currency: string = "VND") => {
+// Helper to get nested values from messages object
+const getMsg = (messages: any, key: string, defaultText = '') => {
+  const keys = key.split('.');
+  let result = messages;
+  for (const k of keys) {
+    result = result?.[k];
+    if (result === undefined) return defaultText || key;
+  }
+  return result;
+};
+
+const formatCurrency = (value: number | undefined, currency: string = "VND", localeForFormatting: string = "vi-VN") => {
   if (value === undefined || isNaN(value)) value = 0;
+  const effectiveLocale = currency === "VND" ? "vi-VN" : (localeForFormatting === "vi" ? "vi-VN" : "en-US");
 
   if (currency === "VND") {
     try {
-      return new Intl.NumberFormat('vi-VN', {
-        style: 'decimal', 
+      return new Intl.NumberFormat(effectiveLocale, {
+        style: 'decimal',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }).format(value);
-    } catch (e) { 
-      return value.toLocaleString('vi-VN', {
+    } catch (e) {
+      return value.toLocaleString(effectiveLocale, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       });
     }
-  } else { 
+  } else {
     try {
-      return new Intl.NumberFormat('en-US', { 
+      return new Intl.NumberFormat(effectiveLocale, {
         style: 'currency',
         currency: currency,
         currencyDisplay: 'symbol',
-        minimumFractionDigits: 2, 
+        minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(value);
-    } catch (e) { 
-      const numericPart = new Intl.NumberFormat('vi-VN', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    } catch (e) {
+      const numericPart = new Intl.NumberFormat(effectiveLocale, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
       return `${numericPart} ${currency}`;
     }
   }
 };
 
-const formatCurrencyForClipboard = (value: number, currency: string) => {
+const formatCurrencyForClipboard = (value: number, currency: string, localeForFormatting: string = "vi-VN") => {
     if (isNaN(value)) value = 0;
+    const effectiveLocale = localeForFormatting === "vi" ? "vi-VN" : "en-US";
     try {
-      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: currency, currencyDisplay: 'code' }).format(value);
+      return new Intl.NumberFormat(effectiveLocale, { style: 'currency', currency: currency, currencyDisplay: 'code' }).format(value);
     } catch {
        return `${value.toFixed(0)} ${currency}`;
     }
@@ -72,11 +85,11 @@ const formatCurrencyForClipboard = (value: number, currency: string) => {
 
 const formatNumberForExport = (value: number | undefined): number => {
   if (value === undefined || isNaN(value)) return 0;
-  return Number(value.toFixed(0)); // Using 0 decimal places for VND values in export
+  return Number(value.toFixed(0));
 };
 
 
-export default function ResultCard({ result }: ResultCardProps) {
+export default function ResultCard({ result, locale, messages }: ResultCardProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const printableRef = useRef<HTMLDivElement>(null);
@@ -98,48 +111,48 @@ export default function ResultCard({ result }: ResultCardProps) {
     let textToCopy = `
 VN Salary Calculation Result:
 ---------------------------------
-Input Salary (${inputType} ${currency}): ${formatCurrencyForClipboard(originalAmount, currency)}
-Calculated ${outputType} (${currency}): ${formatCurrencyForClipboard(isGrossMode ? net : gross, currency)}
+Input Salary (${inputType} ${currency}): ${formatCurrencyForClipboard(originalAmount, currency, locale)}
+Calculated ${outputType} (${currency}): ${formatCurrencyForClipboard(isGrossMode ? net : gross, currency, locale)}
 ---------------------------------
 Details (all amounts in VND unless specified):
-Gross Salary (VND): ${formatCurrency(breakdown.grossSalaryVND, "VND")}
-Net Salary (VND): ${formatCurrency(breakdown.netSalaryVND, "VND")}
+Gross Salary (VND): ${formatCurrency(breakdown.grossSalaryVND, "VND", locale)}
+Net Salary (VND): ${formatCurrency(breakdown.netSalaryVND, "VND", locale)}
 
 Employee's Insurance Contributions (VND):
-  - Base for BHXH, BHYT: ${formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND")}
-  - Base for BHTN: ${formatCurrency(breakdown.insurance.baseBHTN, "VND")}
-  - BHXH (8%): ${formatCurrency(breakdown.insurance.bhxh, "VND")}
-  - BHYT (1.5%): ${formatCurrency(breakdown.insurance.bhyt, "VND")}
-  - BHTN: ${formatCurrency(breakdown.insurance.bhtn, "VND")}
-  - Total Employee Insurance: ${formatCurrency(breakdown.insurance.total, "VND")}
+  - Base for SI, HI: ${formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND", locale)}
+  - Base for UI: ${formatCurrency(breakdown.insurance.baseBHTN, "VND", locale)}
+  - SI (8%): ${formatCurrency(breakdown.insurance.bhxh, "VND", locale)}
+  - HI (1.5%): ${formatCurrency(breakdown.insurance.bhyt, "VND", locale)}
+  - UI: ${formatCurrency(breakdown.insurance.bhtn, "VND", locale)}
+  - Total Employee Insurance: ${formatCurrency(breakdown.insurance.total, "VND", locale)}
 
 Personal Income Tax (PIT) (VND):
-  - Taxable Income: ${formatCurrency(breakdown.taxableIncome, "VND")}
-  - PIT Amount: ${formatCurrency(breakdown.personalIncomeTax, "VND")}
+  - Taxable Income: ${formatCurrency(breakdown.taxableIncome, "VND", locale)}
+  - PIT Amount: ${formatCurrency(breakdown.personalIncomeTax, "VND", locale)}
 `;
 
     if (breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.length > 0) {
       textToCopy += "\n  PIT Breakdown by Brackets (VND):\n";
       breakdown.progressiveTaxDetails.forEach(detail => {
-        textToCopy += `    - ${detail.bracketLabel}: Income ${formatCurrency(detail.incomeInBracket, "VND")}, Tax ${formatCurrency(detail.taxAmountInBracket, "VND")} (${(detail.rate * 100).toFixed(0)}%)\n`;
+        textToCopy += `    - ${detail.bracketLabel}: Income ${formatCurrency(detail.incomeInBracket, "VND", locale)}, Tax ${formatCurrency(detail.taxAmountInBracket, "VND", locale)} (${(detail.rate * 100).toFixed(0)}%)\n`;
       });
     }
 
 textToCopy += `
-Total Deductions from Gross (Insurance + PIT): ${formatCurrency(breakdown.totalDeductionsFromGross, "VND")}
+Total Deductions from Gross (Insurance + PIT): ${formatCurrency(breakdown.totalDeductionsFromGross, "VND", locale)}
 ---------------------------------
 Employer's Contributions (VND):
-  - BHXH (17.5%): ${formatCurrency(breakdown.employerContributions.bhxh, "VND")}
-  - BHYT (3%): ${formatCurrency(breakdown.employerContributions.bhyt, "VND")}
-  - BHTN: ${formatCurrency(breakdown.employerContributions.bhtn, "VND")}`;
+  - SI (17.5%): ${formatCurrency(breakdown.employerContributions.bhxh, "VND", locale)}
+  - HI (3%): ${formatCurrency(breakdown.employerContributions.bhyt, "VND", locale)}
+  - UI: ${formatCurrency(breakdown.employerContributions.bhtn, "VND", locale)}`;
     if (breakdown.employerContributions.tradeUnionFee > 0) {
       textToCopy += `
-  - Trade Union Fee (2%): ${formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND")}`;
+  - Trade Union Fee (2%): ${formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND", locale)}`;
     }
     textToCopy += `
-  - Total Employer Contributions: ${formatCurrency(breakdown.employerContributions.total, "VND")}
+  - Total Employer Contributions: ${formatCurrency(breakdown.employerContributions.total, "VND", locale)}
 
-Total Employer Cost (Gross Salary + Employer Contributions) (VND): ${formatCurrency(breakdown.totalEmployerCost, "VND")}
+Total Employer Cost (Gross Salary + Employer Contributions) (VND): ${formatCurrency(breakdown.totalEmployerCost, "VND", locale)}
 ---------------------------------
 Calculation based on provided inputs.
     `;
@@ -147,16 +160,16 @@ Calculation based on provided inputs.
       .then(() => {
         setCopied(true);
         toast({
-          title: "Đã sao chép!",
-          description: "Kết quả đã được sao chép vào clipboard.",
+          title: messages.copySuccessToast,
+          description: messages.copySuccessDescription,
           action: <CheckCircle className="text-green-500" />,
         });
       })
       .catch(err => {
         toast({
           variant: "destructive",
-          title: "Lỗi sao chép",
-          description: "Không thể sao chép kết quả.",
+          title: messages.copyErrorToast,
+          description: messages.copyErrorDescription,
           action: <AlertTriangle className="text-red-500" />,
         });
       });
@@ -167,7 +180,7 @@ Calculation based on provided inputs.
     const { gross, net, breakdown, isGrossMode, originalAmount, currency } = result;
 
     const dataToExport = [
-      ["VN SALARY CALCULATION RESULT"],
+      ["VN SALARY CALCULATION RESULT"], // This header can be translated if needed
       [],
       ["Calculation Mode:", isGrossMode ? "Gross to Net" : "Net to Gross"],
       [`Input Salary (${currency}):`, originalAmount],
@@ -178,11 +191,11 @@ Calculation based on provided inputs.
       ["Net Salary (VND):", formatNumberForExport(breakdown.netSalaryVND)],
       [],
       ["EMPLOYEE'S INSURANCE CONTRIBUTIONS (VND)"],
-      ["Base for BHXH, BHYT:", formatNumberForExport(breakdown.insurance.baseBHXHBHYT)],
-      ["Base for BHTN:", formatNumberForExport(breakdown.insurance.baseBHTN)],
-      ["BHXH (8%):", formatNumberForExport(breakdown.insurance.bhxh)],
-      ["BHYT (1.5%):", formatNumberForExport(breakdown.insurance.bhyt)],
-      ["BHTN:", formatNumberForExport(breakdown.insurance.bhtn)],
+      ["Base for SI, HI:", formatNumberForExport(breakdown.insurance.baseBHXHBHYT)],
+      ["Base for UI:", formatNumberForExport(breakdown.insurance.baseBHTN)],
+      ["SI (8%):", formatNumberForExport(breakdown.insurance.bhxh)],
+      ["HI (1.5%):", formatNumberForExport(breakdown.insurance.bhyt)],
+      ["UI:", formatNumberForExport(breakdown.insurance.bhtn)],
       ["Total Employee Insurance:", formatNumberForExport(breakdown.insurance.total)],
       [],
       ["PERSONAL INCOME TAX (PIT) (VND)"],
@@ -196,7 +209,7 @@ Calculation based on provided inputs.
       breakdown.progressiveTaxDetails.forEach(detail => {
         if (detail.incomeInBracket > 0 || (breakdown.personalIncomeTax === 0 && breakdown.progressiveTaxDetails && breakdown.progressiveTaxDetails.indexOf(detail) === 0) ) {
            dataToExport.push([
-            detail.bracketLabel,
+            detail.bracketLabel, // This label is from types/salary.ts, potentially needs i18n
             formatNumberForExport(detail.incomeInBracket),
             `${(detail.rate * 100).toFixed(0)}%`,
             formatNumberForExport(detail.taxAmountInBracket),
@@ -208,9 +221,9 @@ Calculation based on provided inputs.
      dataToExport.push(["Total Deductions from Gross (Insurance + PIT):", formatNumberForExport(breakdown.totalDeductionsFromGross)]);
      dataToExport.push([]);
      dataToExport.push(["EMPLOYER'S CONTRIBUTIONS (VND)"]);
-     dataToExport.push(["BHXH (17.5%):", formatNumberForExport(breakdown.employerContributions.bhxh)]);
-     dataToExport.push(["BHYT (3%):", formatNumberForExport(breakdown.employerContributions.bhyt)]);
-     dataToExport.push(["BHTN:", formatNumberForExport(breakdown.employerContributions.bhtn)]);
+     dataToExport.push(["SI (17.5%):", formatNumberForExport(breakdown.employerContributions.bhxh)]);
+     dataToExport.push(["HI (3%):", formatNumberForExport(breakdown.employerContributions.bhyt)]);
+     dataToExport.push(["UI:", formatNumberForExport(breakdown.employerContributions.bhtn)]);
      if (breakdown.employerContributions.tradeUnionFee > 0) {
       dataToExport.push(["Trade Union Fee (2%):", formatNumberForExport(breakdown.employerContributions.tradeUnionFee)]);
      }
@@ -228,15 +241,15 @@ Calculation based on provided inputs.
     try {
       XLSX.writeFile(workbook, `VN_Salary_Calc_${isGrossMode ? 'GtoN' : 'NtoG'}.xlsx`);
       toast({
-        title: "Đã xuất Excel!",
-        description: "Kết quả đã được lưu vào file Excel.",
+        title: messages.exportExcelSuccessToast,
+        description: messages.exportExcelSuccessDescription,
         action: <CheckCircle className="text-green-500" />,
       });
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Lỗi xuất Excel",
-        description: "Không thể tạo file Excel.",
+        title: messages.exportExcelErrorToast,
+        description: messages.exportExcelErrorDescription,
         action: <AlertTriangle className="text-red-500" />,
       });
     }
@@ -246,8 +259,8 @@ Calculation based on provided inputs.
     if (!result || !printableRef.current) {
       toast({
         variant: "destructive",
-        title: "Lỗi xuất PDF",
-        description: "Không có dữ liệu để xuất hoặc không tìm thấy vùng nội dung.",
+        title: messages.exportPDFErrorToast,
+        description: messages.exportPDFErrorDescription,
         action: <AlertTriangle className="text-red-500" />,
       });
       return;
@@ -256,26 +269,21 @@ Calculation based on provided inputs.
     const { isGrossMode } = result;
     
     try {
-      // Temporarily make scrollbars invisible if they affect the canvas capture
       const originalOverflow = printableRef.current.style.overflow;
       printableRef.current.style.overflow = 'visible';
 
       const canvas = await html2canvas(printableRef.current, {
-        scale: 2, // Increase scale for better resolution
-        useCORS: true, // If you have external images/fonts
-        logging: false, // Disable html2canvas logging for cleaner console
-        onclone: (documentClone) => {
-          // You can modify the cloned document here before rendering if needed
-          // For example, hide elements not meant for PDF
-        }
+        scale: 2,
+        useCORS: true,
+        logging: false,
       });
 
-      printableRef.current.style.overflow = originalOverflow; // Restore original overflow
+      printableRef.current.style.overflow = originalOverflow;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
-        unit: 'pt', // points
+        unit: 'pt',
         format: 'a4' 
       });
 
@@ -283,27 +291,20 @@ Calculation based on provided inputs.
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-
-      // Calculate scaling to fit image on PDF page (maintaining aspect ratio)
       const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
       const scaledWidth = imgWidth * ratio;
       const scaledHeight = imgHeight * ratio;
-
-      // Center the image on the page (optional)
       const x = (pdfWidth - scaledWidth) / 2;
       const y = (pdfHeight - scaledHeight) / 2;
       
-      // If image is taller than page, it will be split by jsPDF
-      // For very long content, you might need manual splitting logic.
-      // This basic implementation adds the image as is.
-      if (scaledHeight > pdfHeight) { // Basic multi-page handling
+      if (scaledHeight > pdfHeight) {
         let position = 0;
-        const pageImgHeight = pdfHeight; // Use full page height for each slice
+        const pageImgHeight = pdfHeight;
 
         while(position < imgHeight) {
             const sliceCanvas = document.createElement('canvas');
             sliceCanvas.width = imgWidth;
-            sliceCanvas.height = Math.min(imgHeight - position, pageImgHeight / ratio); // height of slice in original image pixels
+            sliceCanvas.height = Math.min(imgHeight - position, pageImgHeight / ratio);
             const sliceCtx = sliceCanvas.getContext('2d');
             sliceCtx?.drawImage(canvas, 0, position, imgWidth, sliceCanvas.height, 0, 0, imgWidth, sliceCanvas.height);
             
@@ -311,7 +312,6 @@ Calculation based on provided inputs.
             const sliceScaledHeight = sliceCanvas.height * ratio;
             const sliceScaledWidth = sliceCanvas.width * ratio;
             const sliceX = (pdfWidth - sliceScaledWidth) / 2;
-
 
             if (position > 0) {
                 pdf.addPage();
@@ -323,20 +323,20 @@ Calculation based on provided inputs.
          pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
       }
 
-
       pdf.save(`VN_Salary_Calc_${isGrossMode ? 'GtoN' : 'NtoG'}.pdf`);
 
       toast({
-        title: "Đã xuất PDF!",
-        description: "Kết quả đã được lưu vào file PDF.",
+        title: messages.exportPDFSuccessToast,
+        description: messages.exportPDFSuccessDescription,
         action: <CheckCircle className="text-green-500" />,
       });
     } catch (err) {
       console.error("PDF Export Error:", err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
       toast({
         variant: "destructive",
-        title: "Lỗi xuất PDF",
-        description: `Không thể tạo file PDF. Lỗi: ${err instanceof Error ? err.message : String(err)}`,
+        title: messages.exportPDFErrorToast,
+        description: messages.exportPDFErrorGeneric.replace("{error}", errorMsg),
         action: <AlertTriangle className="text-red-500" />,
       });
     }
@@ -348,12 +348,12 @@ Calculation based on provided inputs.
       <Card className="w-full mt-8 shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-headline text-primary flex items-center">
-            <FileText className="mr-2" /> Kết quả tính lương
+            <FileText className="mr-2" /> {messages.title}
           </CardTitle>
-          <CardDescription>Nhập thông tin và nhấn "Tính lương" để xem kết quả chi tiết.</CardDescription>
+          <CardDescription>{messages.prompt}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-center py-8">Chưa có kết quả để hiển thị.</p>
+          <p className="text-muted-foreground text-center py-8">{messages.noResult}</p>
         </CardContent>
       </Card>
     );
@@ -365,19 +365,19 @@ Calculation based on provided inputs.
   const displayOutputValue = isGrossMode ? net : gross;
 
   const chartData = breakdown.grossSalaryVND > 0 ? [
-    { name: "BHXH (NLĐ)", value: breakdown.insurance.bhxh, fill: "hsl(var(--chart-1))" },
-    { name: "BHYT (NLĐ)", value: breakdown.insurance.bhyt, fill: "hsl(var(--chart-2))" },
-    { name: "BHTN (NLĐ)", value: breakdown.insurance.bhtn, fill: "hsl(var(--chart-3))" },
-    { name: "Thuế TNCN", value: breakdown.personalIncomeTax, fill: "hsl(var(--chart-4))" },
-    { name: "Lương thực nhận (Net)", value: breakdown.netSalaryVND, fill: "hsl(var(--chart-5))" },
+    { name: messages.insuranceBHXH, value: breakdown.insurance.bhxh, fill: "hsl(var(--chart-1))" },
+    { name: messages.insuranceBHYT, value: breakdown.insurance.bhyt, fill: "hsl(var(--chart-2))" },
+    { name: messages.insuranceBHTN, value: breakdown.insurance.bhtn, fill: "hsl(var(--chart-3))" },
+    { name: messages.pitAmount, value: breakdown.personalIncomeTax, fill: "hsl(var(--chart-4))" },
+    { name: messages.netSalary, value: breakdown.netSalaryVND, fill: "hsl(var(--chart-5))" },
   ].filter(item => item.value > 0) : [];
 
   const chartConfig = {
-    "BHXH (NLĐ)": { label: "BHXH (NLĐ)", color: "hsl(var(--chart-1))" },
-    "BHYT (NLĐ)": { label: "BHYT (NLĐ)", color: "hsl(var(--chart-2))" },
-    "BHTN (NLĐ)": { label: "BHTN (NLĐ)", color: "hsl(var(--chart-3))" },
-    "Thuế TNCN": { label: "Thuế TNCN", color: "hsl(var(--chart-4))" },
-    "Lương thực nhận (Net)": { label: "Lương thực nhận (Net)", color: "hsl(var(--chart-5))" },
+    [messages.insuranceBHXH]: { label: messages.insuranceBHXH, color: "hsl(var(--chart-1))" },
+    [messages.insuranceBHYT]: { label: messages.insuranceBHYT, color: "hsl(var(--chart-2))" },
+    [messages.insuranceBHTN]: { label: messages.insuranceBHTN, color: "hsl(var(--chart-3))" },
+    [messages.pitAmount]: { label: messages.pitAmount, color: "hsl(var(--chart-4))" },
+    [messages.netSalary]: { label: messages.netSalary, color: "hsl(var(--chart-5))" },
   } satisfies ChartConfig;
 
 
@@ -386,22 +386,24 @@ Calculation based on provided inputs.
       <CardHeader>
         <CardTitle className="text-3xl font-headline text-primary flex items-center">
           {isGrossMode ? <TrendingDown className="mr-2 text-red-500" /> : <TrendingUp className="mr-2 text-green-500" />}
-          Kết quả: Lương {displayOutputType} ước tính
+          {isGrossMode ? messages.resultTitleNet : messages.resultTitleGross}
         </CardTitle>
         <CardDescription>
-          Từ lương {displayInputType} đầu vào: {formatCurrency(originalAmount, currency)} {currency !== "VND" ? "" : currency}
+          {isGrossMode ? messages.fromInputGross : messages.fromInputNet} {formatCurrency(originalAmount, currency, locale)} {currency !== "VND" ? "" : currency}
         </CardDescription>
       </CardHeader>
-      <div ref={printableRef}> {/* This div will be captured by html2canvas */}
+      <div ref={printableRef}>
         <CardContent className="space-y-6">
           <div className="text-center py-6 bg-accent/20 rounded-lg">
-            <p className="text-sm font-medium text-muted-foreground">LƯƠNG {displayOutputType.toUpperCase()} NHẬN ĐƯỢC {currency !== "VND" ? `(${currency})` : "(VND)"}</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              {isGrossMode ? messages.outputAmountLabelNet : messages.outputAmountLabelGross} {currency !== "VND" ? `(${currency})` : "(VND)"}
+            </p>
             <p className="text-4xl font-bold text-primary mt-1">
-              {formatCurrency(displayOutputValue, currency)}
+              {formatCurrency(displayOutputValue, currency, locale)}
             </p>
             {currency !== "VND" && (
               <p className="text-xs text-muted-foreground mt-1">
-                (Tương đương {formatCurrency(isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND, "VND")} VND)
+                 {messages.equivalentToVND.replace("{amount}", formatCurrency(isGrossMode ? breakdown.netSalaryVND : breakdown.grossSalaryVND, "VND", locale))}
               </p>
             )}
           </div>
@@ -409,15 +411,15 @@ Calculation based on provided inputs.
           <Separator />
           
           <div>
-            <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><CircleDollarSign size={20} className="mr-2 text-primary" />Chi tiết (VND)</h3>
+            <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><CircleDollarSign size={20} className="mr-2 text-primary" />{messages.detailsVND}</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
-                <span className="font-medium text-muted-foreground">Lương Gross:</span>
-                <span className="font-semibold text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
+                <span className="font-medium text-muted-foreground">{messages.grossSalary}</span>
+                <span className="font-semibold text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND", locale)}</span>
               </div>
               <div className="flex justify-between items-center p-2 rounded hover:bg-secondary/50">
-                <span className="font-medium text-muted-foreground">Lương Net (thực nhận):</span>
-                <span className="font-semibold text-foreground">{formatCurrency(breakdown.netSalaryVND, "VND")}</span>
+                <span className="font-medium text-muted-foreground">{messages.netSalary}</span>
+                <span className="font-semibold text-foreground">{formatCurrency(breakdown.netSalaryVND, "VND", locale)}</span>
               </div>
             </div>
           </div>
@@ -425,31 +427,31 @@ Calculation based on provided inputs.
           <Separator />
 
           <div>
-              <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Shield size={18} className="mr-2 text-primary" />Các khoản bảo hiểm người lao động đóng:</h4>
+              <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Shield size={18} className="mr-2 text-primary" />{messages.employeeInsuranceTitle}</h4>
               <div className="space-y-1 pl-4 text-sm">
                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">Mức lương đóng BHXH, BHYT:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND")}</span>
+                    <span className="text-muted-foreground">{messages.insuranceBaseBHXHBHYT}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHXHBHYT, "VND", locale)}</span>
                 </div>
                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">Mức lương đóng BHTN:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHTN, "VND")}</span>
+                    <span className="text-muted-foreground">{messages.insuranceBaseBHTN}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.baseBHTN, "VND", locale)}</span>
                 </div>
                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">BHXH (8%):</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhxh, "VND")}</span>
+                    <span className="text-muted-foreground">{messages.insuranceBHXH}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhxh, "VND", locale)}</span>
                 </div>
                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">BHYT (1.5%):</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhyt, "VND")}</span>
+                    <span className="text-muted-foreground">{messages.insuranceBHYT}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhyt, "VND", locale)}</span>
                 </div>
                 <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                    <span className="text-muted-foreground">BHTN:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhtn, "VND")}</span>
+                    <span className="text-muted-foreground">{messages.insuranceBHTN}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.bhtn, "VND", locale)}</span>
                 </div>
                 <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                    <span className="text-muted-foreground">Tổng bảo hiểm NLĐ đóng:</span>
-                    <span className="text-foreground">{formatCurrency(breakdown.insurance.total, "VND")}</span>
+                    <span className="text-muted-foreground">{messages.totalEmployeeInsurance}</span>
+                    <span className="text-foreground">{formatCurrency(breakdown.insurance.total, "VND", locale)}</span>
                 </div>
               </div>
           </div>
@@ -457,15 +459,15 @@ Calculation based on provided inputs.
           <Separator />
           
           <div>
-              <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Percent size={18} className="mr-2 text-primary" />Thuế thu nhập cá nhân (TNCN):</h4>
+              <h4 className="text-lg font-semibold mb-2 text-foreground flex items-center"><Percent size={18} className="mr-2 text-primary" />{messages.pitTitle}</h4>
               <div className="space-y-1 pl-4 text-sm">
                   <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                      <span className="text-muted-foreground">Thu nhập chịu thuế:</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.taxableIncome, "VND")}</span>
+                      <span className="text-muted-foreground">{messages.taxableIncome}</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.taxableIncome, "VND", locale)}</span>
                   </div>
                   <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                      <span className="text-muted-foreground">Tiền thuế TNCN:</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.personalIncomeTax, "VND")}</span>
+                      <span className="text-muted-foreground">{messages.pitAmount}</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.personalIncomeTax, "VND", locale)}</span>
                   </div>
               </div>
           </div>
@@ -473,24 +475,24 @@ Calculation based on provided inputs.
             <>
               <Separator className="my-3" />
               <div>
-                  <h5 className="text-md font-semibold mb-2 text-foreground flex items-center"><ListChecks size={16} className="mr-2 text-primary" /> Chi tiết các bậc thuế TNCN:</h5>
+                  <h5 className="text-md font-semibold mb-2 text-foreground flex items-center"><ListChecks size={16} className="mr-2 text-primary" /> {messages.pitBracketsTitle}</h5>
                   <div className="overflow-x-auto text-xs pl-4">
                     <table className="min-w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-1 px-1 font-medium text-muted-foreground">Mức chịu thuế</th>
-                          <th className="text-right py-1 px-1 font-medium text-muted-foreground">TN tính thuế</th>
-                          <th className="text-center py-1 px-1 font-medium text-muted-foreground">Thuế suất</th>
-                          <th className="text-right py-1 px-1 font-medium text-muted-foreground">Tiền thuế</th>
+                          <th className="text-left py-1 px-1 font-medium text-muted-foreground">{messages.pitBracketHeaderBracket}</th>
+                          <th className="text-right py-1 px-1 font-medium text-muted-foreground">{messages.pitBracketHeaderTaxable}</th>
+                          <th className="text-center py-1 px-1 font-medium text-muted-foreground">{messages.pitBracketHeaderRate}</th>
+                          <th className="text-right py-1 px-1 font-medium text-muted-foreground">{messages.pitBracketHeaderTaxAmount}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {breakdown.progressiveTaxDetails.map((detail, index) => (
                           (detail.incomeInBracket > 0 || breakdown.personalIncomeTax === 0 || index === 0 ) && <tr key={index} className="border-b hover:bg-secondary/20 last:border-b-0">
                             <td className="py-1 px-1 text-muted-foreground">{detail.bracketLabel}</td>
-                            <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.incomeInBracket, "VND")}</td>
+                            <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.incomeInBracket, "VND", locale)}</td>
                             <td className="py-1 px-1 text-center text-foreground">{(detail.rate * 100).toFixed(0)}%</td>
-                            <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.taxAmountInBracket, "VND")}</td>
+                            <td className="py-1 px-1 text-right text-foreground">{formatCurrency(detail.taxAmountInBracket, "VND", locale)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -503,55 +505,54 @@ Calculation based on provided inputs.
           <Separator />
 
           <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
-              <span className="text-lg font-bold text-primary">Tổng khấu trừ NLĐ (BH + Thuế TNCN):</span>
-              <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross, "VND")}</span>
+              <span className="text-lg font-bold text-primary">{messages.totalDeductionsLabel}</span>
+              <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross, "VND", locale)}</span>
           </div>
 
           <Separator className="my-6" />
 
           <div>
-              <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><Briefcase size={20} className="mr-2 text-primary" />Chi phí người sử dụng lao động (VND)</h3>
+              <h3 className="text-xl font-semibold mb-3 text-foreground flex items-center"><Briefcase size={20} className="mr-2 text-primary" />{messages.employerContributionsTitle}</h3>
               <div className="space-y-1 pl-4 text-sm">
                   <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                      <span className="text-muted-foreground">Lương Gross:</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND")}</span>
+                      <span className="text-muted-foreground">{messages.grossSalary}</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.grossSalaryVND, "VND", locale)}</span>
                   </div>
                   <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                      <span className="text-muted-foreground">BHXH (17.5%):</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhxh, "VND")}</span>
+                      <span className="text-muted-foreground">{messages.employerBHXH}</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhxh, "VND", locale)}</span>
                   </div>
                   <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                      <span className="text-muted-foreground">BHYT (3%):</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhyt, "VND")}</span>
+                      <span className="text-muted-foreground">{messages.employerBHYT}</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhyt, "VND", locale)}</span>
                   </div>
                   <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                      <span className="text-muted-foreground">BHTN (NSDLĐ đóng):</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhtn, "VND")}</span>
+                      <span className="text-muted-foreground">{messages.employerBHTN}</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.bhtn, "VND", locale)}</span>
                   </div>
                   {breakdown.employerContributions.tradeUnionFee > 0 && (
                     <div className="flex justify-between items-center p-1 rounded hover:bg-secondary/30">
-                        <span className="text-muted-foreground">Kinh phí Công đoàn (2%):</span>
-                        <span className="text-foreground">{formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND")}</span>
+                        <span className="text-muted-foreground">{messages.employerTradeUnionFee}</span>
+                        <span className="text-foreground">{formatCurrency(breakdown.employerContributions.tradeUnionFee, "VND", locale)}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center p-1 font-semibold rounded bg-secondary/50 mt-1">
-                      <span className="text-muted-foreground">Tổng các khoản NSDLĐ đóng:</span>
-                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.total, "VND")}</span>
+                      <span className="text-muted-foreground">{messages.totalEmployerContributions}</span>
+                      <span className="text-foreground">{formatCurrency(breakdown.employerContributions.total, "VND", locale)}</span>
                   </div>
               </div>
               <div className="flex justify-between items-center p-3 mt-4 bg-primary/10 rounded-lg">
-                  <span className="text-lg font-bold text-primary">Tổng chi phí NSDLĐ:</span>
-                  <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalEmployerCost, "VND")}</span>
+                  <span className="text-lg font-bold text-primary">{messages.totalEmployerCostLabel}</span>
+                  <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalEmployerCost, "VND", locale)}</span>
               </div>
           </div>
-
 
           <Separator className="my-6" />
           
           <div>
             <h3 className="text-xl font-semibold mb-1 text-foreground flex items-center">
               <PieChartIcon size={20} className="mr-2 text-primary" />
-              Biểu đồ phân bổ lương Gross
+              {messages.chartTitle}
             </h3>
             {breakdown.grossSalaryVND > 0 && chartData.length > 0 ? (
               <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[350px] min-h-[250px]">
@@ -564,7 +565,7 @@ Calculation based on provided inputs.
                                 formatter={(value, name, item) => (
                                     <div className="flex flex-col">
                                         <span>{item.payload.name}</span>
-                                        <span className="font-bold">{formatCurrency(value, "VND")} ({((value / breakdown.grossSalaryVND) * 100).toFixed(1)}%)</span>
+                                        <span className="font-bold">{formatCurrency(value as number, "VND", locale)} ({(( (value as number) / breakdown.grossSalaryVND) * 100).toFixed(1)}%)</span>
                                     </div>
                                 )}
                             />}
@@ -609,26 +610,25 @@ Calculation based on provided inputs.
                 </RechartsPieChart>
               </ChartContainer>
             ) : (
-              <p className="text-muted-foreground text-center py-4">Không đủ dữ liệu để vẽ biểu đồ (Lương Gross cần lớn hơn 0).</p>
+              <p className="text-muted-foreground text-center py-4">{messages.chartNoData}</p>
             )}
           </div>
         </CardContent>
-      </div> {/* End of printableRef div */}
+      </div>
       <CardFooter className="flex-col sm:flex-row gap-2">
         <Button onClick={handleCopyToClipboard} variant="outline" className="w-full sm:w-auto flex-1">
           {copied ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
-          {copied ? "Đã sao chép" : "Sao chép"}
+          {copied ? messages.copiedButton : messages.copyButton}
         </Button>
         <Button onClick={handleExportToExcel} variant="outline" className="w-full sm:w-auto flex-1">
           <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Xuất Excel
+          {messages.exportExcelButton}
         </Button>
         <Button onClick={handleExportToPDF} variant="outline" className="w-full sm:w-auto flex-1">
           <Printer className="mr-2 h-4 w-4" />
-          Xuất PDF
+          {messages.exportPDFButton}
         </Button>
       </CardFooter>
     </Card>
   );
 }
-

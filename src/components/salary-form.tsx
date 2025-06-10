@@ -4,10 +4,8 @@
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { Control } from "react-hook-form";
 import { useState, useEffect } from "react";
 import docso from 'docso';
-
 
 import { Button } from "@/components/ui/button";
 import {
@@ -45,14 +43,26 @@ import {
   Users,
   Globe2,
   Info,
-  Briefcase, // Using Briefcase for trade union
+  Briefcase,
 } from "lucide-react";
 
-import type { SalaryInput, Currency, InsuranceBasis, TaxCalculationMethod, Region, Nationality } from "@/types/salary";
-import { REGION_OPTIONS, CURRENCY_OPTIONS, NATIONALITY_OPTIONS, REGION_MINIMUM_WAGE_VND_LEGAL, BASE_SALARY_VND_LEGAL } from "@/types/salary";
+import type { SalaryInput, Currency, Region, Nationality } from "@/types/salary";
+import { REGION_OPTION_KEYS, CURRENCY_OPTION_KEYS, NATIONALITY_OPTION_KEYS, REGION_MINIMUM_WAGE_VND_LEGAL, BASE_SALARY_VND_LEGAL } from "@/types/salary";
+
+// Helper to get nested values from messages object
+const getMsg = (messages: any, key: string, defaultText = '') => {
+  const keys = key.split('.');
+  let result = messages;
+  for (const k of keys) {
+    result = result?.[k];
+    if (result === undefined) return defaultText || key;
+  }
+  return result;
+};
+
 
 const formSchema = z.object({
-  salaryInput: z.coerce.number().min(0, "Thu nhập phải là số dương"),
+  salaryInput: z.coerce.number().min(0, "Thu nhập phải là số dương"), // Error message will be from Zod, not translated here directly
   currency: z.enum(["VND", "USD", "JPY"]),
   exchangeRate: z.coerce.number().optional(),
   insuranceBasis: z.enum(["official", "custom"]),
@@ -66,14 +76,14 @@ const formSchema = z.object({
   if (data.currency !== "VND" && (data.exchangeRate === undefined || data.exchangeRate <= 0)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Tỷ giá hối đoái là bắt buộc và phải lớn hơn 0 khi chọn ngoại tệ.",
+      message: "Tỷ giá hối đoái là bắt buộc và phải lớn hơn 0 khi chọn ngoại tệ.", // This refine message should also be translatable
       path: ["exchangeRate"],
     });
   }
   if (data.insuranceBasis === "custom" && (data.insuranceCustom === undefined || data.insuranceCustom <= 0)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Mức đóng bảo hiểm tùy chọn là bắt buộc và phải lớn hơn 0.",
+      message: "Mức đóng bảo hiểm tùy chọn là bắt buộc và phải lớn hơn 0.", // This refine message should also be translatable
       path: ["insuranceCustom"],
     });
   }
@@ -86,6 +96,9 @@ interface SalaryFormProps {
   isGrossMode: boolean;
   onModeChange: (isGross: boolean) => void;
   initialValues?: Partial<SalaryFormValues>;
+  locale: string;
+  messages: any; // Type for salaryForm messages
+  generalMessages: any; // Type for general messages (toasts)
 }
 
 const defaultValues: Partial<SalaryFormValues> = {
@@ -104,10 +117,8 @@ const formatVNNumberForInput = (value: string | number | undefined): string => {
   if (value === undefined || value === null) return '';
   const numStr = String(value).replace(/\D/g, '');
   if (numStr === '') return '';
-
   const num = Number(numStr);
   if (isNaN(num)) return '';
-
   return new Intl.NumberFormat('vi-VN').format(num);
 };
 
@@ -117,7 +128,7 @@ const cleanToNumericString = (value: string | undefined): string => {
 };
 
 
-export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initialValues }: SalaryFormProps) {
+export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initialValues, locale, messages, generalMessages }: SalaryFormProps) {
   const { toast } = useToast();
   const form = useForm<SalaryFormValues>({
     resolver: zodResolver(formSchema),
@@ -132,18 +143,18 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
 
   useEffect(() => {
     const numericValue = form.getValues("salaryInput");
-    if (typeof numericValue === 'number' && !isNaN(numericValue) && numericValue >= 0) {
+    if (locale === 'vi' && typeof numericValue === 'number' && !isNaN(numericValue) && numericValue >= 0) {
       try {
         const words = docso(numericValue);
         const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1);
-        setSalaryInWords(capitalizedWords + " đồng");
+        setSalaryInWords(capitalizedWords + " " + messages.salaryInWordsSuffix);
       } catch (e) {
         setSalaryInWords('');
       }
     } else {
       setSalaryInWords('');
     }
-  }, [watchedSalaryInput, form]);
+  }, [watchedSalaryInput, form, locale, messages.salaryInWordsSuffix]);
 
 
   function handleFormSubmit(values: SalaryFormValues) {
@@ -158,26 +169,29 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     };
     onSubmit(salaryData);
     toast({
-      title: "Đã tính toán!",
-      description: "Kiểm tra kết quả bên dưới.",
+      title: generalMessages.calculationDoneToast,
+      description: generalMessages.calculationDoneDesc,
     });
   }
 
   const getExchangeRateLabel = (currency: Currency | undefined) => {
-    if (currency === "USD") return "Tỷ giá (1 USD = ? VND)";
-    if (currency === "JPY") return "Tỷ giá (1 JPY = ? VND)";
-    return "Tỷ giá";
+    if (currency === "USD") return messages.exchangeRateLabelUSD;
+    if (currency === "JPY") return messages.exchangeRateLabelJPY;
+    return "Exchange Rate"; // Fallback
   };
-
+  
   const currentRegionMinimumWage = watchedRegion ? REGION_MINIMUM_WAGE_VND_LEGAL[watchedRegion as Region] : null;
+  const currentRegionName = REGION_OPTION_KEYS.find(opt => opt.value === watchedRegion)?.labelKey;
+  const regionNameText = currentRegionName ? getMsg(messages, currentRegionName, `Region ${watchedRegion}`) : `Region ${watchedRegion}`;
+
 
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-headline text-primary flex items-center">
-          <Calculator className="mr-2" /> Thông tin tính lương
+          <Calculator className="mr-2" /> {messages.title}
         </CardTitle>
-        <CardDescription>Nhập các thông tin cần thiết để tính lương Gross ↔ Net.</CardDescription>
+        <CardDescription>{messages.description}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -185,7 +199,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
 
             <div className="flex items-center space-x-4 p-4 bg-secondary/30 rounded-lg shadow-sm">
               <ArrowRightLeft size={24} className="text-primary" />
-              <FormLabel className="text-lg font-semibold">Chế độ tính: {isGrossMode ? "Gross sang Net" : "Net sang Gross"}</FormLabel>
+              <FormLabel className="text-lg font-semibold">{messages.modeLabel} {isGrossMode ? messages.grossToNet : messages.netToGross}</FormLabel>
               <Switch
                 checked={!isGrossMode}
                 onCheckedChange={(checked) => onModeChange(!checked)}
@@ -201,11 +215,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="salaryInput"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><DollarSign size={16} className="mr-1 text-primary" /> Thu nhập ({isGrossMode ? "Gross" : "Net"})</FormLabel>
+                    <FormLabel className="flex items-center"><DollarSign size={16} className="mr-1 text-primary" /> {messages.salaryInputLabel} ({isGrossMode ? "Gross" : "Net"})</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder="Nhập số tiền"
+                        placeholder={isGrossMode ? messages.salaryInputGrossPlaceholder : messages.salaryInputNetPlaceholder}
                         {...field}
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
@@ -224,16 +238,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="currency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Coins size={16} className="mr-1 text-primary" /> Loại tiền tệ</FormLabel>
+                    <FormLabel className="flex items-center"><Coins size={16} className="mr-1 text-primary" /> {messages.currencyLabel}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Chọn loại tiền" />
+                          <SelectValue placeholder={messages.currencyLabel} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {CURRENCY_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        {CURRENCY_OPTION_KEYS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{getMsg(messages, opt.labelKey, opt.value)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -253,7 +267,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder="Nhập tỷ giá"
+                        placeholder={messages.exchangeRatePlaceholder}
                         {...field}
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
@@ -275,7 +289,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
               name="insuranceBasis"
               render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="text-md font-semibold flex items-center"><Shield size={18} className="mr-1 text-primary" /> Tùy chọn đóng bảo hiểm</FormLabel>
+                  <FormLabel className="text-md font-semibold flex items-center"><Shield size={18} className="mr-1 text-primary" /> {messages.insuranceBasisLabel}</FormLabel>
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
@@ -287,7 +301,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="official" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Trên lương chính thức (Gross)
+                          {messages.insuranceBasisOfficial}
                         </FormLabel>
                       </FormItem>
                       <FormItem className="flex items-center space-x-3 space-y-0">
@@ -295,7 +309,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="custom" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Khác (tự nhập mức đóng BH)
+                         {messages.insuranceBasisCustom}
                         </FormLabel>
                       </FormItem>
                     </RadioGroup>
@@ -311,11 +325,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="insuranceCustom"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mức lương cơ sở đóng bảo hiểm (VND)</FormLabel>
+                    <FormLabel>{messages.insuranceCustomLabel}</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder="Nhập mức đóng BH tùy chọn"
+                        placeholder={messages.insuranceCustomPlaceholder}
                         {...field}
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
@@ -324,7 +338,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         }}
                       />
                     </FormControl>
-                    <FormDescription>Đây là mức lương làm cơ sở để tính các khoản BHXH, BHYT, BHTN.</FormDescription>
+                    <FormDescription>{messages.insuranceCustomDescription}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -347,26 +361,24 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   <div className="space-y-1 leading-none">
                     <FormLabel className="flex items-center cursor-pointer">
                       <Briefcase size={16} className="mr-2 text-primary" />
-                      Có đóng kinh phí Công đoàn (2% do NSDLĐ đóng)
+                      {messages.hasTradeUnionFeeLabel}
                     </FormLabel>
                     <FormDescription>
-                      Kinh phí công đoàn là khoản đóng góp của doanh nghiệp, không trừ vào lương người lao động.
+                     {messages.hasTradeUnionFeeDescription}
                     </FormDescription>
                   </div>
                 </FormItem>
               )}
             />
 
-
             <Separator />
-
 
             <FormField
               control={form.control}
               name="taxCalculationMethod"
               render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="text-md font-semibold flex items-center"><Percent size={18} className="mr-1 text-primary" /> Phương thức tính thuế TNCN</FormLabel>
+                  <FormLabel className="text-md font-semibold flex items-center"><Percent size={18} className="mr-1 text-primary" /> {messages.taxCalculationMethodLabel}</FormLabel>
                    <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
@@ -378,7 +390,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="progressive" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Lũy tiến từng phần
+                          {messages.taxProgressive}
                         </FormLabel>
                       </FormItem>
                       <FormItem className="flex items-center space-x-3 space-y-0">
@@ -386,7 +398,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="flat10" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Thuế suất cố định 10% (trên thu nhập trước thuế, sau BH)
+                          {messages.taxFlat10}
                         </FormLabel>
                       </FormItem>
                     </RadioGroup>
@@ -404,16 +416,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="region"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><MapPin size={16} className="mr-1 text-primary" /> Vùng</FormLabel>
+                    <FormLabel className="flex items-center"><MapPin size={16} className="mr-1 text-primary" /> {messages.regionLabel}</FormLabel>
                     <Select onValueChange={(value) => field.onChange(parseInt(value) as Region)} defaultValue={String(field.value)}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Chọn vùng" />
+                          <SelectValue placeholder={messages.regionPlaceholder} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {REGION_OPTIONS.map(opt => (
-                           <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                        {REGION_OPTION_KEYS.map(opt => (
+                           <SelectItem key={opt.value} value={String(opt.value)}>{getMsg(messages, opt.labelKey, `Region ${opt.value}`)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -421,11 +433,13 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                       <div className="mt-2 space-y-1">
                         <FormDescription className="flex items-center text-xs">
                           <Info size={12} className="mr-1 text-muted-foreground" />
-                          Lương tối thiểu {REGION_OPTIONS.find(opt => opt.value === watchedRegion)?.label}: {formatVNNumberForInput(currentRegionMinimumWage)} VND
+                           {messages.regionInfoMinWage
+                            .replace("{regionName}", regionNameText)
+                            .replace("{amount}", formatVNNumberForInput(currentRegionMinimumWage))}
                         </FormDescription>
                         <FormDescription className="flex items-center text-xs">
                           <Info size={12} className="mr-1 text-muted-foreground" />
-                          Lương cơ sở (chung): {formatVNNumberForInput(BASE_SALARY_VND_LEGAL)} VND
+                          {messages.regionInfoBaseSalary.replace("{amount}",formatVNNumberForInput(BASE_SALARY_VND_LEGAL))}
                         </FormDescription>
                       </div>
                     )}
@@ -439,16 +453,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="dependents"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Users size={16} className="mr-1 text-primary" /> Số người phụ thuộc</FormLabel>
+                    <FormLabel className="flex items-center"><Users size={16} className="mr-1 text-primary" /> {messages.dependentsLabel}</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Nhập số người" {...field}
+                      <Input type="number" placeholder={messages.dependentsPlaceholder} {...field}
                        onChange={(e) => {
                           const val = parseInt(e.target.value, 10);
                           field.onChange(isNaN(val) ? 0 : val);
                         }}
                       />
                     </FormControl>
-                     <FormDescription>Số người được giảm trừ gia cảnh.</FormDescription>
+                     <FormDescription>{messages.dependentsDescription}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -459,20 +473,20 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="nationality"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Globe2 size={16} className="mr-1 text-primary" /> Quốc tịch</FormLabel>
+                    <FormLabel className="flex items-center"><Globe2 size={16} className="mr-1 text-primary" /> {messages.nationalityLabel}</FormLabel>
                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Chọn quốc tịch" />
+                          <SelectValue placeholder={messages.nationalityPlaceholder} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {NATIONALITY_OPTIONS.map(opt => (
-                           <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        {NATIONALITY_OPTION_KEYS.map(opt => (
+                           <SelectItem key={opt.value} value={opt.value}>{getMsg(messages, opt.labelKey, opt.value)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>Ảnh hưởng cách tính thuế TNCN và BHTN.</FormDescription>
+                    <FormDescription>{messages.nationalityDescription}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -481,7 +495,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
 
             <Button type="submit" className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6">
               <Calculator className="mr-2 h-5 w-5" />
-              Tính lương
+              {messages.calculateButton}
             </Button>
           </form>
         </Form>
@@ -489,3 +503,4 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     </Card>
   );
 }
+
