@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { Control } from "react-hook-form";
 import { useState, useEffect } from "react";
-import { docso } from 'docso';
+import docso from 'docso';
 
 
 import { Button } from "@/components/ui/button";
@@ -203,7 +203,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          field.onChange(numericString === '' ? undefined : numericString);
+                          field.onChange(numericString === '' ? undefined : Number(numericString));
                         }}
                       />
                     </FormControl>
@@ -251,7 +251,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          field.onChange(numericString === '' ? undefined : numericString);
+                          field.onChange(numericString === '' ? undefined : Number(numericString));
                         }}
                       />
                     </FormControl>
@@ -313,7 +313,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          field.onChange(numericString === '' ? undefined : numericString);
+                          field.onChange(numericString === '' ? undefined : Number(numericString));
                         }}
                       />
                     </FormControl>
