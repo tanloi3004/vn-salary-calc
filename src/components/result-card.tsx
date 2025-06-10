@@ -4,19 +4,30 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent } from "lucide-react";
+import { Copy, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, FileText, CircleDollarSign, Shield, Percent, PieChart as PieChartIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SalaryResult } from "@/types/salary";
 import { useState, useEffect } from "react";
+
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig
+} from "@/components/ui/chart";
+import { PieChart as RechartsPieChart, Pie as RechartsPie, Cell, Tooltip as RechartsTooltip } from "recharts";
+
 
 interface ResultCardProps {
   result: SalaryResult | null;
 }
 
 const formatCurrency = (value: number, currency: string = "VND") => {
+  if (isNaN(value)) value = 0; // Handle NaN gracefully
+
   if (currency === "VND") {
-    // For VND, format as a decimal number with Vietnamese locale-specific thousand separators
-    // and no fractional digits.
     try {
       return new Intl.NumberFormat('vi-VN', {
         style: 'decimal',
@@ -24,22 +35,19 @@ const formatCurrency = (value: number, currency: string = "VND") => {
         maximumFractionDigits: 0,
       }).format(value);
     } catch (e) {
-      // Fallback for VND number formatting
       return value.toLocaleString('vi-VN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       });
     }
   } else {
-    // For other currencies, format with currency symbol and locale-specific separators.
     try {
       return new Intl.NumberFormat('vi-VN', {
         style: 'currency',
         currency: currency,
-        // Let Intl determine appropriate fraction digits for non-VND currencies
+        currencyDisplay: 'symbol', // Use symbol for non-VND like $ or ¥
       }).format(value);
     } catch (e) {
-      // Fallback: format number with vi-VN locale and append currency code
       const numericPart = new Intl.NumberFormat('vi-VN', { style: 'decimal' }).format(value);
       return `${numericPart} ${currency}`;
     }
@@ -64,19 +72,11 @@ export default function ResultCard({ result }: ResultCardProps) {
     const inputType = isGrossMode ? "Gross" : "Net";
     const outputType = isGrossMode ? "Net" : "Gross";
     const outputValue = isGrossMode ? net : gross;
-
-    // For clipboard, we might want to be more explicit with currency symbols/codes,
-    // so we'll use a slightly different formatting strategy for the clipboard text.
-    const formatForClipboard = (val: number, curr: string) => {
-      const numStr = new Intl.NumberFormat('vi-VN', { style: 'decimal' }).format(val);
-      if (curr === "VND") return `${numStr} VND`; // Explicitly add VND for clarity in text
-      return `${numStr} ${curr}`; // For USD, JPY just append code for simplicity
-    };
     
     const formatCurrencyStyleForClipboard = (val: number, curr: string) => {
+        if (isNaN(val)) val = 0;
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: curr, currencyDisplay: 'code' }).format(val);
     }
-
 
     const textToCopy = `
 VN Salary Calculation Result:
@@ -85,16 +85,16 @@ Input Salary (${inputType} ${currency}): ${formatCurrencyStyleForClipboard(origi
 Calculated ${outputType} (${currency}): ${formatCurrencyStyleForClipboard(outputValue, currency)}
 ---------------------------------
 Details (all amounts in VND):
-Gross Salary: ${formatForClipboard(breakdown.grossSalaryVND, "VND")}
-Net Salary: ${formatForClipboard(breakdown.netSalaryVND, "VND")}
-Insurance Base: ${formatForClipboard(breakdown.insurance.base, "VND")}
-  - BHXH (8%): ${formatForClipboard(breakdown.insurance.bhxh, "VND")}
-  - BHYT (1.5%): ${formatForClipboard(breakdown.insurance.bhyt, "VND")}
-  - BHTN (1%): ${formatForClipboard(breakdown.insurance.bhtn, "VND")}
-  - Total Insurance: ${formatForClipboard(breakdown.insurance.total, "VND")}
-Taxable Income: ${formatForClipboard(breakdown.taxableIncome, "VND")}
-Personal Income Tax (PIT): ${formatForClipboard(breakdown.personalIncomeTax, "VND")}
-Total Deductions (Insurance + PIT): ${formatForClipboard(breakdown.totalDeductionsFromGross, "VND")}
+Gross Salary: ${formatCurrency(breakdown.grossSalaryVND, "VND")} VND
+Net Salary: ${formatCurrency(breakdown.netSalaryVND, "VND")} VND
+Insurance Base: ${formatCurrency(breakdown.insurance.base, "VND")} VND
+  - BHXH (8%): ${formatCurrency(breakdown.insurance.bhxh, "VND")} VND
+  - BHYT (1.5%): ${formatCurrency(breakdown.insurance.bhyt, "VND")} VND
+  - BHTN (1%): ${formatCurrency(breakdown.insurance.bhtn, "VND")} VND
+  - Total Insurance: ${formatCurrency(breakdown.insurance.total, "VND")} VND
+Taxable Income: ${formatCurrency(breakdown.taxableIncome, "VND")} VND
+Personal Income Tax (PIT): ${formatCurrency(breakdown.personalIncomeTax, "VND")} VND
+Total Deductions (Insurance + PIT): ${formatCurrency(breakdown.totalDeductionsFromGross, "VND")} VND
 ---------------------------------
 Calculation based on provided inputs.
     `;
@@ -138,6 +138,23 @@ Calculation based on provided inputs.
   const displayOutputType = isGrossMode ? "Net" : "Gross";
   const displayOutputValue = isGrossMode ? net : gross;
 
+  const chartData = breakdown.grossSalaryVND > 0 ? [
+    { name: "BHXH", value: breakdown.insurance.bhxh, fill: "hsl(var(--chart-1))" },
+    { name: "BHYT", value: breakdown.insurance.bhyt, fill: "hsl(var(--chart-2))" },
+    { name: "BHTN", value: breakdown.insurance.bhtn, fill: "hsl(var(--chart-3))" },
+    { name: "Thuế TNCN", value: breakdown.personalIncomeTax, fill: "hsl(var(--chart-4))" },
+    { name: "Lương thực nhận", value: breakdown.netSalaryVND, fill: "hsl(var(--chart-5))" },
+  ].filter(item => item.value > 0) : []; // Filter out zero/negative values for cleaner chart
+
+  const chartConfig = {
+    "BHXH": { label: "BHXH", color: "hsl(var(--chart-1))" },
+    "BHYT": { label: "BHYT", color: "hsl(var(--chart-2))" },
+    "BHTN": { label: "BHTN", color: "hsl(var(--chart-3))" },
+    "Thuế TNCN": { label: "Thuế TNCN", color: "hsl(var(--chart-4))" },
+    "Lương thực nhận": { label: "Lương thực nhận", color: "hsl(var(--chart-5))" },
+  } satisfies ChartConfig;
+
+
   return (
     <Card className="w-full mt-8 shadow-xl">
       <CardHeader>
@@ -146,7 +163,7 @@ Calculation based on provided inputs.
           Kết quả: Lương {displayOutputType} ước tính
         </CardTitle>
         <CardDescription>
-          Từ lương {displayInputType} đầu vào: {formatCurrency(originalAmount, currency)} {currency !== "VND" ? currency : ""}
+          Từ lương {displayInputType} đầu vào: {formatCurrency(originalAmount, currency)} {currency !== "VND" ? "" : currency}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -224,6 +241,63 @@ Calculation based on provided inputs.
             <span className="text-lg font-bold text-primary">{formatCurrency(breakdown.totalDeductionsFromGross, "VND")}</span>
         </div>
 
+        <Separator className="my-6" />
+        
+        <div>
+          <h3 className="text-xl font-semibold mb-1 text-foreground flex items-center">
+            <PieChartIcon size={20} className="mr-2 text-primary" />
+            Biểu đồ phân bổ lương Gross
+          </h3>
+          {breakdown.grossSalaryVND > 0 && chartData.length > 0 ? (
+            <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[350px] min-h-[250px]">
+              <RechartsPieChart accessibilityLayer>
+                <RechartsTooltip
+                  cursor={true}
+                  content={<ChartTooltipContent 
+                              nameKey="name" 
+                              hideLabel 
+                              formatter={(value, name, item) => (
+                                  <div className="flex flex-col">
+                                      <span>{item.payload.name}</span>
+                                      <span className="font-bold">{formatCurrency(value, "VND")} ({((value / breakdown.grossSalaryVND) * 100).toFixed(1)}%)</span>
+                                  </div>
+                              )}
+                          />}
+                />
+                <RechartsPie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  innerRadius={50}
+                  labelLine={false}
+                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                    if (percent * 100 < 3) return null; 
+                    const RADIAN = Math.PI / 180;
+                    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    return (
+                      <text x={x} y={y} fill="hsl(var(--primary-foreground))" textAnchor="middle" dominantBaseline="central" fontSize="10px" fontWeight="bold">
+                        {`${(percent * 100).toFixed(0)}%`}
+                      </text>
+                    );
+                  }}
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={`cell-${entry.name}`} fill={entry.fill} stroke={"hsl(var(--background))"} strokeWidth={2} />
+                  ))}
+                </RechartsPie>
+                <ChartLegend content={<ChartLegendContent nameKey="name" className="text-xs [&_div]:inline-block [&_div]:truncate [&_div]:max-w-[100px] sm:[&_div]:max-w-[180px]" />} />
+              </RechartsPieChart>
+            </ChartContainer>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">Không đủ dữ liệu để vẽ biểu đồ (Lương Gross cần lớn hơn 0).</p>
+          )}
+        </div>
+
       </CardContent>
       <CardFooter>
         <Button onClick={handleCopyToClipboard} variant="outline" className="w-full">
@@ -235,3 +309,4 @@ Calculation based on provided inputs.
   );
 }
 
+    
