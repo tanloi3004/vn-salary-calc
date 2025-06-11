@@ -62,29 +62,29 @@ const getMsg = (messages: any, key: string, defaultText = '') => {
 
 
 const createFormSchema = (messages: any) => z.object({
-  salaryInput: z.coerce.number().min(0, getMsg(messages, 'salaryForm.salaryInputErrorMin', "Income must be a non-negative number.")),
+  salaryInput: z.coerce.number().min(0, getMsg(messages, 'salaryInputErrorMin', "Income must be a non-negative number.")),
   currency: z.enum(["VND", "USD", "JPY"]),
-  usdExchangeRate: z.coerce.number().positive(getMsg(messages, 'salaryForm.usdExchangeRateErrorPositive', "USD exchange rate must be positive.")),
+  usdExchangeRate: z.coerce.number().positive(getMsg(messages, 'usdExchangeRateErrorPositive', "USD exchange rate must be positive.")),
   jpyExchangeRate: z.coerce.number().optional(),
   insuranceBasis: z.enum(["official", "custom"]),
   insuranceCustom: z.coerce.number().optional(),
   taxCalculationMethod: z.enum(["progressive", "flat10"]),
   region: z.coerce.number().min(1).max(4).transform(val => val as Region),
-  dependents: z.coerce.number().min(0, getMsg(messages, 'salaryForm.dependentsErrorMin', "Number of dependents cannot be negative.")).int(getMsg(messages, 'salaryForm.dependentsErrorInt', "Number of dependents must be an integer.")),
+  dependents: z.coerce.number().min(0, getMsg(messages, 'dependentsErrorMin', "Number of dependents cannot be negative.")).int(getMsg(messages, 'dependentsErrorInt', "Number of dependents must be an integer.")),
   nationality: z.enum(["VN", "Foreign"]),
   hasTradeUnionFee: z.boolean().optional().default(false),
 }).superRefine((data, ctx) => {
   if (data.currency === "JPY" && (data.jpyExchangeRate === undefined || data.jpyExchangeRate <= 0)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: getMsg(messages, 'salaryForm.jpyExchangeRateErrorRequired', "JPY exchange rate is required and must be positive when JPY is selected."),
+      message: getMsg(messages, 'jpyExchangeRateErrorRequired', "JPY exchange rate is required and must be positive when JPY is selected."),
       path: ["jpyExchangeRate"],
     });
   }
   if (data.insuranceBasis === "custom" && (data.insuranceCustom === undefined || data.insuranceCustom <= 0)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: getMsg(messages, 'salaryForm.insuranceCustomErrorRequired', "Custom insurance base is required and must be positive."),
+      message: getMsg(messages, 'insuranceCustomErrorRequired', "Custom insurance base is required and must be positive."),
       path: ["insuranceCustom"],
     });
   }
@@ -120,7 +120,7 @@ const formatVNNumberForInput = (value: string | number | undefined | null): stri
   const numStr = String(value).replace(/\D/g, '');
   if (numStr === '') return '';
   const num = Number(numStr);
-  if (isNaN(num)) return '';
+  if (isNaN(num)) return ''; // Check again if Number() results in NaN
   return new Intl.NumberFormat('vi-VN').format(num);
 };
 
@@ -133,7 +133,7 @@ const cleanToNumericString = (value: string | undefined): string => {
 export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initialValues, locale, messages, generalMessages }: SalaryFormProps) {
   const { toast } = useToast();
   
-  const currentFormSchema = useMemo(() => createFormSchema(messages), [messages]);
+  const currentFormSchema = useMemo(() => createFormSchema(messages.salaryForm), [messages]);
 
   const form = useForm<SalaryFormValues>({
     resolver: zodResolver(currentFormSchema),
@@ -142,37 +142,43 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
 
   const watchedCurrency = form.watch("currency");
   const watchedInsuranceBasis = form.watch("insuranceBasis");
-  const watchedSalaryInput = form.watch("salaryInput");
+  const watchedSalaryInput = form.watch("salaryInput"); // Keep this to trigger effect
   const watchedRegion = form.watch("region");
   const [salaryInWords, setSalaryInWords] = useState('');
 
   useEffect(() => {
-    const numericValue = form.getValues("salaryInput");
-    if (locale === 'vi' && typeof numericValue === 'number' && !isNaN(numericValue) && numericValue >= 0) {
-      try {
-        const words = docso(numericValue);
-        const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1);
-        setSalaryInWords(capitalizedWords + " " + getMsg(messages, "salaryInWordsSuffix", "đồng"));
-      } catch (e) {
+    const handler = setTimeout(() => {
+      const numericValue = form.getValues("salaryInput");
+      if (locale === 'vi' && typeof numericValue === 'number' && !isNaN(numericValue) && numericValue >= 0) {
+        try {
+          const words = docso(numericValue);
+          const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1);
+          setSalaryInWords(capitalizedWords + " " + getMsg(messages.salaryForm, "salaryInWordsSuffix", "đồng"));
+        } catch (e) {
+          setSalaryInWords('');
+        }
+      } else {
         setSalaryInWords('');
       }
-    } else {
-      setSalaryInWords('');
-    }
+    }, 300); // 300ms delay
+
+    return () => {
+      clearTimeout(handler);
+    };
   }, [watchedSalaryInput, form, locale, messages]);
 
 
   function handleFormSubmit(values: SalaryFormValues) {
     const salaryData: SalaryInput = {
       ...values,
-      salaryInput: typeof values.salaryInput === 'number' && !isNaN(values.salaryInput) ? values.salaryInput : 0, // Ensure salaryInput is a number
+      salaryInput: typeof values.salaryInput === 'number' && !isNaN(values.salaryInput) ? values.salaryInput : 0,
       isGrossMode,
       usdExchangeRate: values.usdExchangeRate,
       jpyExchangeRate: values.currency === 'JPY' ? values.jpyExchangeRate : undefined,
       insuranceCustom: values.insuranceBasis === 'custom' ? values.insuranceCustom : undefined,
       region: values.region as Region,
       nationality: values.nationality as Nationality,
-      hasTradeUnionFee: values.hasTradeUnionFee,
+      hasTradeUnionFee: !!values.hasTradeUnionFee,
     };
     onSubmit(salaryData);
     toast({
@@ -183,16 +189,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
   
   const currentRegionMinimumWage = watchedRegion ? REGION_MINIMUM_WAGE_VND_LEGAL[watchedRegion as Region] : null;
   const currentRegionName = REGION_OPTION_KEYS.find(opt => opt.value === watchedRegion)?.labelKey;
-  const regionNameText = currentRegionName ? getMsg(messages, currentRegionName, `Region ${watchedRegion}`) : `Region ${watchedRegion}`;
+  const regionNameText = currentRegionName ? getMsg(messages.options, currentRegionName, `Region ${watchedRegion}`) : `Region ${watchedRegion}`;
 
 
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-headline text-primary flex items-center">
-          <Calculator className="mr-2" /> {getMsg(messages, "title", "Salary Calculation Information")}
+          <Calculator className="mr-2" /> {getMsg(messages.salaryForm, "title", "Salary Calculation Information")}
         </CardTitle>
-        <CardDescription>{getMsg(messages, "description", "Enter the necessary information to calculate Gross ↔ Net salary.")}</CardDescription>
+        <CardDescription>{getMsg(messages.salaryForm, "description", "Enter the necessary information to calculate Gross ↔ Net salary.")}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -200,11 +206,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
 
             <div className="flex items-center space-x-4 p-4 bg-secondary/30 rounded-lg shadow-sm">
               <ArrowRightLeft size={24} className="text-primary" />
-              <FormLabel className="text-lg font-semibold">{getMsg(messages, "modeLabel", "Calculation Mode:")} {isGrossMode ? getMsg(messages, "grossToNet", "Gross to Net") : getMsg(messages, "netToGross", "Net to Gross")}</FormLabel>
+              <FormLabel className="text-lg font-semibold">{getMsg(messages.salaryForm, "modeLabel", "Calculation Mode:")} {isGrossMode ? getMsg(messages.salaryForm, "grossToNet", "Gross to Net") : getMsg(messages.salaryForm, "netToGross", "Net to Gross")}</FormLabel>
               <Switch
                 checked={!isGrossMode}
                 onCheckedChange={(checked) => onModeChange(!checked)}
-                aria-label={getMsg(messages, "switchModeAriaLabel", "Switch Gross/Net mode")}
+                aria-label={getMsg(messages.salaryForm, "switchModeAriaLabel", "Switch Gross/Net mode")}
               />
             </div>
 
@@ -216,11 +222,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="salaryInput"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><DollarSign size={16} className="mr-1 text-primary" /> {getMsg(messages, "salaryInputLabel", "Income")} ({isGrossMode ? "Gross" : "Net"})</FormLabel>
+                    <FormLabel className="flex items-center"><DollarSign size={16} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "salaryInputLabel", "Income")} ({isGrossMode ? getMsg(messages.options, "currencyGross", "Gross") : getMsg(messages.options, "currencyNet", "Net")})</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder={isGrossMode ? getMsg(messages, "salaryInputGrossPlaceholder", "Enter Gross salary") : getMsg(messages, "salaryInputNetPlaceholder", "Enter Net salary")}
+                        placeholder={isGrossMode ? getMsg(messages.salaryForm, "salaryInputGrossPlaceholder", "Enter Gross salary") : getMsg(messages.salaryForm, "salaryInputNetPlaceholder", "Enter Net salary")}
                         {...field}
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
@@ -239,16 +245,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="currency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Coins size={16} className="mr-1 text-primary" /> {getMsg(messages, "currencyLabel", "Currency")}</FormLabel>
+                    <FormLabel className="flex items-center"><Coins size={16} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "currencyLabel", "Currency")}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={getMsg(messages, "currencyLabel", "Currency")} />
+                          <SelectValue placeholder={getMsg(messages.salaryForm, "currencyLabel", "Currency")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {CURRENCY_OPTION_KEYS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{getMsg(messages, opt.labelKey, opt.value)}</SelectItem>
+                          <SelectItem key={opt.value} value={opt.value}>{getMsg(messages.options, opt.labelKey, opt.value)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -263,11 +269,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
               name="usdExchangeRate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {getMsg(messages, "exchangeRateLabelUSD", "Exchange Rate (1 USD = ? VND)")}</FormLabel>
+                  <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "exchangeRateLabelUSD", "Exchange Rate (1 USD = ? VND)")}</FormLabel>
                   <FormControl>
                     <Input
                       type="text"
-                      placeholder={getMsg(messages, "exchangeRatePlaceholder", "Enter USD to VND rate")}
+                      placeholder={getMsg(messages.salaryForm, "exchangeRatePlaceholder", "Enter USD to VND rate")}
                       {...field}
                       value={formatVNNumberForInput(field.value)}
                       onChange={(e) => {
@@ -287,11 +293,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="jpyExchangeRate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {getMsg(messages, "exchangeRateLabelJPY", "Exchange Rate (1 JPY = ? VND)")}</FormLabel>
+                    <FormLabel className="flex items-center"><Repeat size={16} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "exchangeRateLabelJPY", "Exchange Rate (1 JPY = ? VND)")}</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder={getMsg(messages, "exchangeRatePlaceholderJPY", "Enter JPY to VND rate")}
+                        placeholder={getMsg(messages.salaryForm, "exchangeRatePlaceholderJPY", "Enter JPY to VND rate")}
                         {...field}
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
@@ -313,7 +319,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
               name="insuranceBasis"
               render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="text-md font-semibold flex items-center"><Shield size={18} className="mr-1 text-primary" /> {getMsg(messages, "insuranceBasisLabel", "Insurance Contribution Basis")}</FormLabel>
+                  <FormLabel className="text-md font-semibold flex items-center"><Shield size={18} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "insuranceBasisLabel", "Insurance Contribution Basis")}</FormLabel>
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
@@ -325,7 +331,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="official" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          {getMsg(messages, "insuranceBasisOfficial", "On official salary (Gross)")}
+                          {getMsg(messages.salaryForm, "insuranceBasisOfficial", "On official salary (Gross)")}
                         </FormLabel>
                       </FormItem>
                       <FormItem className="flex items-center space-x-3 space-y-0">
@@ -333,7 +339,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="custom" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                         {getMsg(messages, "insuranceBasisCustom", "Other (enter custom insurance base)")}
+                         {getMsg(messages.salaryForm, "insuranceBasisCustom", "Other (enter custom insurance base)")}
                         </FormLabel>
                       </FormItem>
                     </RadioGroup>
@@ -349,11 +355,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="insuranceCustom"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{getMsg(messages, "insuranceCustomLabel", "Custom Insurance Base Salary (VND)")}</FormLabel>
+                    <FormLabel>{getMsg(messages.salaryForm, "insuranceCustomLabel", "Custom Insurance Base Salary (VND)")}</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
-                        placeholder={getMsg(messages, "insuranceCustomPlaceholder", "Enter custom insurance base")}
+                        placeholder={getMsg(messages.salaryForm, "insuranceCustomPlaceholder", "Enter custom insurance base")}
                         {...field}
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
@@ -362,7 +368,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         }}
                       />
                     </FormControl>
-                    <FormDescription>{getMsg(messages, "insuranceCustomDescription", "This is the base salary for calculating SI, HI, UI.")}</FormDescription>
+                    <FormDescription>{getMsg(messages.salaryForm, "insuranceCustomDescription", "This is the base salary for calculating SI, HI, UI.")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -385,10 +391,10 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                   <div className="space-y-1 leading-none">
                     <FormLabel className="flex items-center cursor-pointer">
                       <Briefcase size={16} className="mr-2 text-primary" />
-                      {getMsg(messages, "hasTradeUnionFeeLabel", "Include Trade Union Fee (2% paid by employer)")}
+                      {getMsg(messages.salaryForm, "hasTradeUnionFeeLabel", "Include Trade Union Fee (2% paid by employer)")}
                     </FormLabel>
                     <FormDescription>
-                     {getMsg(messages, "hasTradeUnionFeeDescription", "The trade union fee is an employer contribution, not deducted from employee's salary.")}
+                     {getMsg(messages.salaryForm, "hasTradeUnionFeeDescription", "The trade union fee is an employer contribution, not deducted from employee's salary.")}
                     </FormDescription>
                   </div>
                 </FormItem>
@@ -402,7 +408,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
               name="taxCalculationMethod"
               render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="text-md font-semibold flex items-center"><Percent size={18} className="mr-1 text-primary" /> {getMsg(messages, "taxCalculationMethodLabel", "PIT Calculation Method")}</FormLabel>
+                  <FormLabel className="text-md font-semibold flex items-center"><Percent size={18} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "taxCalculationMethodLabel", "PIT Calculation Method")}</FormLabel>
                    <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
@@ -414,7 +420,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="progressive" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          {getMsg(messages, "taxProgressive", "Progressive tax brackets")}
+                          {getMsg(messages.salaryForm, "taxProgressive", "Progressive tax brackets")}
                         </FormLabel>
                       </FormItem>
                       <FormItem className="flex items-center space-x-3 space-y-0">
@@ -422,7 +428,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                           <RadioGroupItem value="flat10" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          {getMsg(messages, "taxFlat10", "Flat 10% tax rate (on income before tax, after insurance)")}
+                          {getMsg(messages.salaryForm, "taxFlat10", "Flat 10% tax rate (on income before tax, after insurance)")}
                         </FormLabel>
                       </FormItem>
                     </RadioGroup>
@@ -440,16 +446,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="region"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><MapPin size={16} className="mr-1 text-primary" /> {getMsg(messages, "regionLabel", "Region")}</FormLabel>
+                    <FormLabel className="flex items-center"><MapPin size={16} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "regionLabel", "Region")}</FormLabel>
                     <Select onValueChange={(value) => field.onChange(parseInt(value) as Region)} defaultValue={String(field.value)}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={getMsg(messages, "regionPlaceholder", "Select region")} />
+                          <SelectValue placeholder={getMsg(messages.salaryForm, "regionPlaceholder", "Select region")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {REGION_OPTION_KEYS.map(opt => (
-                           <SelectItem key={opt.value} value={String(opt.value)}>{getMsg(messages, opt.labelKey, `Region ${opt.value}`)}</SelectItem>
+                           <SelectItem key={opt.value} value={String(opt.value)}>{getMsg(messages.options, opt.labelKey, `Region ${opt.value}`)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -457,13 +463,13 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                       <div className="mt-2 space-y-1">
                         <FormDescription className="flex items-center text-xs">
                           <Info size={12} className="mr-1 text-muted-foreground" />
-                           {getMsg(messages, "regionInfoMinWage", "Min. wage {regionName}: {amount} VND")
+                           {getMsg(messages.salaryForm, "regionInfoMinWage", "Min. wage {regionName}: {amount} VND")
                             .replace("{regionName}", regionNameText)
                             .replace("{amount}", formatVNNumberForInput(currentRegionMinimumWage))}
                         </FormDescription>
                         <FormDescription className="flex items-center text-xs">
                           <Info size={12} className="mr-1 text-muted-foreground" />
-                          {getMsg(messages, "regionInfoBaseSalary", "Base salary (common): {amount} VND").replace("{amount}",formatVNNumberForInput(BASE_SALARY_VND_LEGAL))}
+                          {getMsg(messages.salaryForm, "regionInfoBaseSalary", "Base salary (common): {amount} VND").replace("{amount}",formatVNNumberForInput(BASE_SALARY_VND_LEGAL))}
                         </FormDescription>
                       </div>
                     )}
@@ -477,16 +483,16 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="dependents"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Users size={16} className="mr-1 text-primary" /> {getMsg(messages, "dependentsLabel", "Number of Dependents")}</FormLabel>
+                    <FormLabel className="flex items-center"><Users size={16} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "dependentsLabel", "Number of Dependents")}</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder={getMsg(messages, "dependentsPlaceholder", "Enter number")} {...field}
+                      <Input type="number" placeholder={getMsg(messages.salaryForm, "dependentsPlaceholder", "Enter number")} {...field}
                        onChange={(e) => {
                           const val = parseInt(e.target.value, 10);
                           field.onChange(isNaN(val) ? 0 : val); // Default to 0 if NaN
                         }}
                       />
                     </FormControl>
-                     <FormDescription>{getMsg(messages, "dependentsDescription", "Number of people eligible for family allowances.")}</FormDescription>
+                     <FormDescription>{getMsg(messages.salaryForm, "dependentsDescription", "Number of people eligible for family allowances.")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -497,20 +503,20 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                 name="nationality"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Globe2 size={16} className="mr-1 text-primary" /> {getMsg(messages, "nationalityLabel", "Nationality")}</FormLabel>
+                    <FormLabel className="flex items-center"><Globe2 size={16} className="mr-1 text-primary" /> {getMsg(messages.salaryForm, "nationalityLabel", "Nationality")}</FormLabel>
                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={getMsg(messages, "nationalityPlaceholder", "Select nationality")} />
+                          <SelectValue placeholder={getMsg(messages.salaryForm, "nationalityPlaceholder", "Select nationality")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {NATIONALITY_OPTION_KEYS.map(opt => (
-                           <SelectItem key={opt.value} value={opt.value}>{getMsg(messages, opt.labelKey, opt.value)}</SelectItem>
+                           <SelectItem key={opt.value} value={opt.value}>{getMsg(messages.options, opt.labelKey, opt.value)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>{getMsg(messages, "nationalityDescription", "Affects PIT and UI calculations.")}</FormDescription>
+                    <FormDescription>{getMsg(messages.salaryForm, "nationalityDescription", "Affects PIT and UI calculations.")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -519,7 +525,7 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
 
             <Button type="submit" className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6">
               <Calculator className="mr-2 h-5 w-5" />
-              {getMsg(messages, "calculateButton", "Calculate Salary")}
+              {getMsg(messages.salaryForm, "calculateButton", "Calculate Salary")}
             </Button>
           </form>
         </Form>
@@ -527,3 +533,4 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
     </Card>
   );
 }
+
