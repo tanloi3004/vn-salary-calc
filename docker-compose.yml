@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:80" # Map host port 8080 to container port 80
+      - "${APP_FORWARD_PORT:-8080}:80" # Map host port 8080 to container port 80
     container_name: vn-salary-calc-nginx
     restart: unless-stopped
     volumes:
