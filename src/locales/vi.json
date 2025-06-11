@@ -203,6 +203,8 @@
     "currencyVND": "VND",
     "currencyUSD": "USD",
     "currencyJPY": "JPY",
+    "currencyGross": "Gross",
+    "currencyNet": "Net",
     "region1": "Vùng 1",
     "region2": "Vùng 2",
     "region3": "Vùng 3",
