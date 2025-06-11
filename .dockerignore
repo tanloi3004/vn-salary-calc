@@ -1,0 +1,28 @@
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Next.js
+.next
+out
+
+# IDE / OS specific
+.vscode
+.DS_Store
+*.pem
+*.key
+*.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local

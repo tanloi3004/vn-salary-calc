@@ -3,6 +3,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  output: 'export', // Enable static HTML export
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -18,6 +19,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    unoptimized: true, // Required for static export if using next/image
   },
   experimental: {
     turbo: {
@@ -27,6 +29,12 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     return config;
   },
+  // Remove the i18n block if present, as App Router handles i18n via directory structure for static export
+  // and this block can cause issues or is ignored for 'output: export' with App Router.
+  // i18n: {
+  //   locales: ['en', 'vi'],
+  //   defaultLocale: 'vi',
+  // },
 };
 
 // Export as default for .ts files, or module.exports for .js/.mjs

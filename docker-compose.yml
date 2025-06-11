@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80" # Map host port 8080 to container port 80
+    container_name: vn-salary-calc-nginx
+    restart: unless-stopped
+    volumes:
+      # For development, you might want to mount the out directory to see changes without rebuilding.
+      # For production, it's better to rely on the image build.
+      # - ./out:/usr/share/nginx/html:ro # Read-only mount for the static files
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro # Mount nginx config for easier changes in dev
+                                                               # For production, bake it into the image as done in Dockerfile
+    # environment:
+      # - NGINX_HOST=yourdomain.com
+      # - NGINX_PORT=80
