@@ -310,6 +310,7 @@ Calculation based on provided inputs.
         scale: 2,
         useCORS: true,
         logging: false,
+        windowWidth: 1200, // Use 1200px width for canvas rendering
       });
 
       printableRef.current.style.overflow = originalOverflow;
@@ -675,3 +676,6 @@ Calculation based on provided inputs.
     </Card>
   );
 }
+
+
+    

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, use } from 'react'; // Added use
+import { useState, use } from 'react';
 import SalaryForm from '@/components/salary-form';
 import ResultCard from '@/components/result-card';
 import type { SalaryInput, SalaryResult, CalculationHistoryEntry } from '@/types/salary';
@@ -127,7 +127,7 @@ export default function HomePage({ params }: HomePageProps) {
       <Card className="mt-12">
         <CardContent className="p-6">
           <Tabs defaultValue="explanation" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="flex flex-wrap justify-center gap-x-2 gap-y-2 mb-4">
               <TabsTrigger value="explanation">{calculatorTabsMessages.explanation}</TabsTrigger>
               <TabsTrigger value="law">{calculatorTabsMessages.law}</TabsTrigger>
               <TabsTrigger value="disclaimer">{calculatorTabsMessages.disclaimer}</TabsTrigger>
@@ -369,5 +369,7 @@ export default function HomePage({ params }: HomePageProps) {
     </div>
   );
 }
+
+    
 
     
