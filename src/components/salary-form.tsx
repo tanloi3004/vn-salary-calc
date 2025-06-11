@@ -225,11 +225,11 @@ export default function SalaryForm({ onSubmit, isGrossMode, onModeChange, initia
                         value={formatVNNumberForInput(field.value)}
                         onChange={(e) => {
                           const numericString = cleanToNumericString(e.target.value);
-                          field.onChange(numericString === '' ? NaN : Number(numericString)); // Changed undefined to NaN
+                          field.onChange(numericString === '' ? NaN : Number(numericString)); 
                         }}
                       />
                     </FormControl>
-                    {salaryInWords && <FormDescription className="text-primary font-medium italic">{salaryInWords}</FormDescription>}
+                    {watchedCurrency === "VND" && salaryInWords && <FormDescription className="text-primary font-medium italic">{salaryInWords}</FormDescription>}
                     <FormMessage />
                   </FormItem>
                 )}
